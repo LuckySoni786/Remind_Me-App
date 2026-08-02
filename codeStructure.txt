@@ -1,0 +1,457 @@
+-------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------
+-------------------------------------CLIENT STRUCTURE--------------------------------
+-------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------
+
+
+client/
+
+│
+
+├── public/
+
+│   ├── favicon.ico
+
+│   ├── manifest.json
+
+│   ├── icons/
+
+│   └── sounds/
+
+│        reminder.mp3
+
+│
+
+├── src/
+
+│
+
+│   ├── api/
+
+│   │      axios.js
+
+│   │      authApi.js
+
+│   │      medicineApi.js
+
+│   │      reminderApi.js
+
+│   │      notificationApi.js
+
+│
+
+│   ├── app/
+
+│   │      store.js
+
+│
+
+│   ├── assets/
+
+│
+
+│   ├── components/
+
+│   │
+
+│   │    ├── common/
+
+│   │    ├── layout/
+
+│   │    ├── forms/
+
+│   │    ├── cards/
+
+│   │    ├── tables/
+
+│   │    ├── charts/
+
+│   │    ├── modals/
+
+│   │    └── ui/
+
+│
+
+│   ├── features/
+
+│   │
+
+│   │    ├── auth/
+
+│   │    │      authSlice.js
+
+│   │    │      Login.jsx
+
+│   │    │      Register.jsx
+
+│   │
+
+│   │    ├── dashboard/
+
+│   │
+
+│   │    ├── medicines/
+
+│   │
+
+│   │    ├── reminders/
+
+│   │
+
+│   │    ├── exercise/
+
+│   │
+
+│   │    ├── water/
+
+│   │
+
+│   │    ├── meals/
+
+│   │
+
+│   │    ├── appointments/
+
+│   │
+
+│   │    ├── reports/
+
+│   │
+
+│   │    ├── caregivers/
+
+│   │
+
+│   │    ├── profile/
+
+│   │
+
+│   │    └── settings/
+
+│
+
+│   ├── hooks/
+
+│
+
+│   ├── layouts/
+
+│
+
+│   ├── pages/
+
+│
+
+│   ├── routes/
+
+│
+
+│   ├── services/
+
+│        firebase.js
+
+│        notification.js
+
+│
+
+│   ├── utils/
+
+│
+
+│   ├── constants/
+
+│
+
+│   ├── context/
+
+│
+
+│   ├── App.jsx
+
+│
+
+│   └── main.jsx
+
+│
+
+├── .env
+
+├── vite.config.js
+
+└── package.json
+
+
+
+
+-------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------
+-------------------------------------SERVER STRUCTURE--------------------------------
+-------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------
+
+server/
+
+│
+
+├── src/
+
+│
+
+│   ├── config/
+
+│   │
+
+│   │     db.js
+
+│   │     firebase.js
+
+│   │     mail.js
+
+│   │
+
+│   ├── controllers/
+
+│   │
+
+│   │     auth.controller.js
+
+│   │     medicine.controller.js
+
+│   │     reminder.controller.js
+
+│   │     notification.controller.js
+
+│   │     report.controller.js
+
+│   │
+
+│   ├── middleware/
+
+│   │
+
+│   │     auth.js
+
+│   │     errorHandler.js
+
+│   │     validate.js
+
+│   │
+
+│   ├── models/
+
+│   │
+
+│   │     User.js
+
+│   │     Medicine.js
+
+│   │     Reminder.js
+
+│   │     Notification.js
+
+│   │     Exercise.js
+
+│   │     Meal.js
+
+│   │     Water.js
+
+│   │     Appointment.js
+
+│   │
+
+│   ├── routes/
+
+│   │
+
+│   │     auth.routes.js
+
+│   │     medicine.routes.js
+
+│   │     reminder.routes.js
+
+│   │     notification.routes.js
+
+│   │     report.routes.js
+
+│   │
+
+│   ├── services/
+
+│   │
+
+│   │     notification.service.js
+
+│   │     scheduler.service.js
+
+│   │     mail.service.js
+
+│   │
+
+│   ├── scheduler/
+
+│   │
+
+│   │     cron.js
+
+│   │
+
+│   ├── utils/
+
+│   │
+
+│   │     jwt.js
+
+│   │     response.js
+
+│   │
+
+│   ├── app.js
+
+│
+
+│   └── server.js
+
+│
+
+├── .env
+
+└── package.json
+
+
+
+
+-----------------------------------------DATABASE MODELS-------------------------------
+
+User
+
+Medicine
+
+Reminder
+
+Notification
+
+Exercise
+
+Meal
+
+Water
+
+Appointment
+
+Caregiver
+
+Report
+
+
+--------------------------------------REACT PAGES-------------------------------------------
+
+Landing
+
+Login
+
+Register
+
+Dashboard
+
+Medicines
+
+Exercises
+
+Meals
+
+Water
+
+Appointments
+
+Notifications
+
+Reports
+
+Settings
+
+Profile
+
+404
+
+
+--------------------------------------------DASHBOARD CARDS-----------------------------------
+
+Today's Medicines
+
+Upcoming Reminders
+
+Water Progress
+
+Exercise Progress
+
+Meal Status
+
+Missed Reminders
+
+Weekly Report
+
+Health Score
+
+
+------------------------------------DEVELOPMENT ORDER --------------------------------
+[PHASE 1]:-
+
+Authentication
+
+Dashboard
+
+Profile
+
+
+[PHASE 2]:-
+
+Medicine CRUD
+
+Exercise CRUD
+
+Meal CRUD
+
+Water CRUD
+
+
+[PHASE 3]:-
+
+Reminder Scheduler
+
+Notification History
+
+Dashboard Statistics
+
+
+[PHASE 4]:-
+
+Push Notifications
+
+PWA
+
+Reminder Sound
+
+Offline Support
+
+
+[PHASE 5]:-
+
+Analytics
+
+Reports
+
+Calendar
+
+Caregiver
+
+
+[PHASE 6]:-
+
+AI
+
+OCR
+
+Prescription Upload
+
+Voice Reminder
