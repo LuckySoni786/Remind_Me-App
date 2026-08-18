@@ -2,7 +2,7 @@ import Medicine from "../models/Medicine.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/apiResponse.js";
-
+import Reminder from "../models/Reminder.js";
 export const createMedicine = asyncHandler(async (req, res) => {
     const {
         medicineName,
@@ -158,12 +158,14 @@ export const deleteMedicine = asyncHandler(async(req, res)=>{
         user: req.user._id
     });
 
+if(!medicine){
+        throw new ApiError(404, "Medicine not found!!");
+        }
+
 await Medicine.deleteOne({
      _id: id
 })
     
-    if(!medicine){
-        throw new ApiError(404, "User not found!!");
-        }
+    
     return res.status(200).json(new ApiResponse(200, "Medicine Deleted Successfully!", null));
 })

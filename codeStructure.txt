@@ -455,3 +455,9 @@ OCR
 Prescription Upload
 
 Voice Reminder
+
+
+PORT=5000
+MONGO_URI=mongodb+srv://luckysoni9782:soni..lucky7@cluster0.blhhlq6.mongodb.net/Reminder_me?appName=Cluster0
+JWT_SECRET=123@@asdf
+JWT_EXPIRES_IN=7d
