@@ -86,6 +86,10 @@ isActive: {
     type: Boolean,
     default: true,
 },
+lastTriggeredAt: {
+    type: Date,
+    default: null,
+},
 
 notificationType: {
     type: String,
