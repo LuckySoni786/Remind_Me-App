@@ -1,7 +1,7 @@
 import cron from "node-cron";
 import Reminder from "../models/Reminder.js";
 
-const startReminderScheduler = () => {
+const startReminderScheduler = (io) => {
 
     cron.schedule("* * * * *", async () => {
 
@@ -39,6 +39,12 @@ const startReminderScheduler = () => {
                             `Reminder is due: ${reminder.title}`
                         );
 
+                        io.emit("reminder-due", {
+                            reminderId: reminder._id,
+                            title: reminder.title,
+                            category: reminder.category
+                        });
+
                         reminder.lastTriggeredAt = now;
                         reminder.isActive = false;
 
@@ -64,12 +70,55 @@ const startReminderScheduler = () => {
                         console.log(
                             `Daily reminder is due: ${reminder.title}`
                         );
-
+                        io.emit("reminder-due", {
+                            reminderId: reminder._id,
+                            title: reminder.title,
+                            category: reminder.category
+                        });
                         reminder.lastTriggeredAt = now;
 
                         await reminder.save();
                     }
                 }
+
+                // HOURLY REMINDER
+                if (reminder.reminderType === "HOURLY") {
+
+                    const now = new Date();
+
+                    const currentTime = now.getTime();
+
+                    if (!reminder.lastTriggeredAt) {
+
+                        console.log(
+                            `Hourly reminder is due: ${reminder.title}`
+                        );
+
+                        reminder.lastTriggeredAt = now;
+
+                        await reminder.save();
+
+                    } else {
+
+                        const lastTriggeredTime =
+                            reminder.lastTriggeredAt.getTime();
+
+                        const interval =
+                            reminder.intervalMinutes * 60 * 1000;
+
+                        if (currentTime - lastTriggeredTime >= interval) {
+
+                            console.log(
+                                `Hourly reminder is due: ${reminder.title}`
+                            );
+
+                            reminder.lastTriggeredAt = now;
+
+                            await reminder.save();
+                        }
+                    }
+                }
+
             }
 
         } catch (error) {
