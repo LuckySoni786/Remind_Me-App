@@ -45,6 +45,15 @@ scheduledAt: {
     type: Date,
     default: null,
 },
+startDate: {
+    type: Date,
+    default: null,
+},
+
+endDate: {
+    type: Date,
+    default: null,
+},
 time: {
     type: String,
     default: null,
@@ -66,6 +75,18 @@ daysOfWeek: {
     }],
     default: [],
 },
+
+customInterval: {
+    type: Number,
+    default: null
+},
+
+customIntervalUnit: {
+    type: String,
+    enum: ["MINUTES", "HOURS", "DAYS"],
+    default: null
+},
+
 intervalMinutes: {
     type: Number,
     min: [1, "Interval must be at least 1 minute"],

@@ -6,6 +6,7 @@ import authRoutes from "./routes/authRoutes.js";
 import medicineRoutes from "./routes/medicineRoute.js";
 import reminderRoutes from "./routes/reminderRoute.js"
 import errorMiddleware from "./middleware/errorMiddleware.js";
+import reminderHistoryRouter from "./routes/reminderHistoryRoute.js"
 import cookieParser from "cookie-parser";
 const app = express();
 
@@ -26,6 +27,7 @@ app.use(morgan("dev"));
 app.use("/api/auth", authRoutes);
 app.use("/api/medicine", medicineRoutes);
 app.use("/api/reminder", reminderRoutes);
+app.use("/api/v1/reminder-history", reminderHistoryRouter);
 app.use(errorMiddleware);
 app.get("/", (req, res) => {
     res.status(200).json({
