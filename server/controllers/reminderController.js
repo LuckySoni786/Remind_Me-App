@@ -76,35 +76,85 @@ export const createReminder = asyncHandler(async (req, res) => {
         }
     }
 
-    // One-time validation
-    if (reminderType === "ONE_TIME" && !scheduledAt) {
+// ONE TIME VALIDATION
+if (reminderType === "ONE_TIME") {
+
+    if (!scheduledAt) {
         throw new ApiError(
             400,
             "Scheduled date and time are required for one-time reminder."
         );
     }
-    if (isNaN(new Date(scheduledAt).getTime())) {
+
+    const scheduled = new Date(scheduledAt);
+
+    if (isNaN(scheduled.getTime())) {
         throw new ApiError(
             400,
             "Invalid scheduled date and time."
         );
     }
 
+    // Check scheduledAt with startDate
+    if (startDate) {
+
+        const start = new Date(startDate);
+
+        if (isNaN(start.getTime())) {
+            throw new ApiError(
+                400,
+                "Invalid start date."
+            );
+        }
+
+        if (scheduled < start) {
+            throw new ApiError(
+                400,
+                "Scheduled date cannot be before start date."
+            );
+        }
+    }
+
+    // Check scheduledAt with endDate
+    if (endDate) {
+
+        const end = new Date(endDate);
+
+        if (isNaN(end.getTime())) {
+            throw new ApiError(
+                400,
+                "Invalid end date."
+            );
+        }
+
+        if (scheduled > end) {
+            throw new ApiError(
+                400,
+                "Scheduled date cannot be after end date."
+            );
+        }
+    }
+}
+
     const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
     // Daily validation
-    if (reminderType === "DAILY" && !time) {
-        throw new ApiError(
-            400,
-            "Time is required for daily reminder."
-        );
-    }
+    // Daily validation
+    if (reminderType === "DAILY") {
 
-    if (!timeRegex.test(time)) {
-        throw new ApiError(
-            400,
-            "Time must be in HH:mm format."
-        );
+        if (!time) {
+            throw new ApiError(
+                400,
+                "Time is required for daily reminder."
+            );
+        }
+
+        if (!timeRegex.test(time)) {
+            throw new ApiError(
+                400,
+                "Time must be in HH:mm format."
+            );
+        }
     }
 
     // Weekly validation
@@ -414,33 +464,41 @@ export const updateReminder = asyncHandler(async (req, res) => {
     }
 
 
-    // ==========================================
-    // ONE TIME VALIDATION
-    // ==========================================
 
-  if (reminderType === "ONE_TIME") {
+   // ==========================================
+// ONE TIME VALIDATION
+// ==========================================
 
-    if (!scheduledAt) {
+if (finalReminderType === "ONE_TIME") {
+
+    if (!finalScheduledAt) {
         throw new ApiError(
             400,
             "Scheduled date and time are required for one-time reminder."
         );
     }
 
-    const scheduledDate = new Date(scheduledAt);
+    const scheduled = new Date(finalScheduledAt);
 
-    if (isNaN(scheduledDate.getTime())) {
+    if (isNaN(scheduled.getTime())) {
         throw new ApiError(
             400,
             "Invalid scheduled date and time."
         );
     }
 
-    if (startDate) {
+    if (finalStartDate) {
 
-        const start = new Date(startDate);
+        const start = new Date(finalStartDate);
 
-        if (scheduledDate < start) {
+        if (isNaN(start.getTime())) {
+            throw new ApiError(
+                400,
+                "Invalid start date."
+            );
+        }
+
+        if (scheduled < start) {
             throw new ApiError(
                 400,
                 "Scheduled date cannot be before start date."
@@ -448,11 +506,18 @@ export const updateReminder = asyncHandler(async (req, res) => {
         }
     }
 
-    if (endDate) {
+    if (finalEndDate) {
 
-        const end = new Date(endDate);
+        const end = new Date(finalEndDate);
 
-        if (scheduledDate > end) {
+        if (isNaN(end.getTime())) {
+            throw new ApiError(
+                400,
+                "Invalid end date."
+            );
+        }
+
+        if (scheduled > end) {
             throw new ApiError(
                 400,
                 "Scheduled date cannot be after end date."
@@ -461,22 +526,22 @@ export const updateReminder = asyncHandler(async (req, res) => {
     }
 }
 
-if (finalStartDate && finalEndDate) {
+    if (finalStartDate && finalEndDate) {
 
-    const start = new Date(finalStartDate);
-    const end = new Date(finalEndDate);
-    const scheduled = new Date(finalScheduledAt);
+        const start = new Date(finalStartDate);
+        const end = new Date(finalEndDate);
+        const scheduled = new Date(finalScheduledAt);
 
-    if (
-        scheduled < start ||
-        scheduled > end
-    ) {
-        throw new ApiError(
-            400,
-            "Scheduled date must be within start date and end date."
-        );
+        if (
+            scheduled < start ||
+            scheduled > end
+        ) {
+            throw new ApiError(
+                400,
+                "Scheduled date must be within start date and end date."
+            );
+        }
     }
-}
 
 
     // ==========================================

@@ -14,7 +14,7 @@ const reminderHistorySchema = new mongoose.Schema(
             required: [true, "User is required"],
         },
 
-        title: {
+        title: {              
             type: String,
             required: [true, "Reminder title is required"],
             trim: true,
@@ -64,6 +64,7 @@ const reminderHistorySchema = new mongoose.Schema(
         timestamps: true,
     }
 );
+
 
 const ReminderHistory = mongoose.model(
     "ReminderHistory",

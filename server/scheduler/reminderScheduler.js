@@ -10,7 +10,7 @@ const createReminderHistory = async (reminder, triggeredAt) => {
         category: reminder.category,
         reminderType: reminder.reminderType,
         status: "TRIGGERED",
-        triggeredAt,
+        triggeredAt: new Date()
     });
 };
 
@@ -82,6 +82,10 @@ const startReminderScheduler = (io) => {
                     }
                 }
                 // ONE TIME REMINDER
+                // ==========================================
+                // ONE TIME REMINDER
+                // ==========================================
+
                 if (reminder.reminderType === "ONE_TIME") {
 
                     const now = new Date();
@@ -93,20 +97,28 @@ const startReminderScheduler = (io) => {
                     ) {
 
                         console.log(
-                            `Reminder is due: ${reminder.title}`
+                            `One-time reminder is due: ${reminder.title}`
                         );
 
+                        // Send notification event
                         io.emit("reminder-due", {
                             reminderId: reminder._id,
                             title: reminder.title,
                             category: reminder.category
                         });
 
+                        // Update reminder
                         reminder.lastTriggeredAt = now;
                         reminder.isActive = false;
 
                         await reminder.save();
+
+                        // Create history
                         await createReminderHistory(reminder, now);
+
+                        console.log(
+                            `One-time reminder triggered successfully: ${reminder.title}`
+                        );
                     }
                 }
 
@@ -327,6 +339,32 @@ const startReminderScheduler = (io) => {
                 }
 
             }
+
+            const triggeredHistories = await ReminderHistory.find({
+    status: "TRIGGERED"
+});
+
+for (const history of triggeredHistories) {
+
+    const now = new Date();
+
+    // Testing ke liye 1 minute
+    const missedAfter = 60 * 1000;
+
+    const elapsedTime =
+        now.getTime() - history.triggeredAt.getTime();
+
+    if (elapsedTime >= missedAfter) {
+
+        history.status = "MISSED";
+
+        await history.save();
+
+        console.log(
+            `Reminder marked as MISSED: ${history.title}`
+        );
+    }
+}
 
         } catch (error) {
 
