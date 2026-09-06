@@ -2,7 +2,8 @@ import express from "express";
 import {
     getReminderHistory,
     updateHistoryStatus,
-    getReminderStatistics
+    getReminderStatistics,
+    snoozeReminderHistory
 } from "../controllers/reminderHistoryController.js";
 import { verifyJWT } from '../middleware/authMiddleware.js';
 
@@ -24,6 +25,11 @@ router.patch(
     "/:id/status",
     verifyJWT,
     updateHistoryStatus
+);
+router.patch(
+    "/:id/snooze",
+    verifyJWT,
+    snoozeReminderHistory
 );
 
 export default router;

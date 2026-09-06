@@ -1,17 +1,152 @@
 import cron from "node-cron";
 import Reminder from "../models/Reminder.js";
 import ReminderHistory from "../models/ReminderHistory.js";
+import User from "../models/User.js";
+// import { sendReminderEmail } from "../services/notificationService.js";
+import {
+    sendReminderEmailWithRetry
+} from "../services/notificationService.js";
 
-const createReminderHistory = async (reminder, triggeredAt) => {
-    await ReminderHistory.create({
+const triggerReminder = async (reminder, io, now) => {
+
+    const user = await User.findById(reminder.user)
+        .select("email firstName notificationPreferences");
+
+    if (!user) {
+        console.log(
+            `User not found for reminder: ${reminder.title}`
+        );
+
+        return null;
+    }
+
+    const browserEnabled =
+        user.notificationPreferences?.browser ?? true;
+
+    const emailEnabled =
+        user.notificationPreferences?.email ?? true;
+
+    console.log(
+        `Reminder is due: ${reminder.title}`
+    );
+
+    const history = await ReminderHistory.create({
         reminder: reminder._id,
         user: reminder.user,
         title: reminder.title,
         category: reminder.category,
         reminderType: reminder.reminderType,
         status: "TRIGGERED",
-        triggeredAt: new Date()
+        triggeredAt: now,
+        notificationStatus: {
+            browser: "NOT_SENT",
+            email: "NOT_SENT"
+        }
     });
+
+    // ==========================================
+    // BROWSER NOTIFICATION
+    // ==========================================
+
+   if (
+    browserEnabled &&
+    (
+        reminder.notificationType === "BROWSER" ||
+        reminder.notificationType === "BOTH"
+    )
+) {
+    try {
+
+        io.emit("reminder-due", {
+            reminderId: reminder._id,
+            historyId: history._id,
+            title: reminder.title,
+            category: reminder.category,
+            reminderType: reminder.reminderType,
+            triggeredAt: now
+        });
+
+        history.notificationStatus.browser = "SENT";
+
+    } catch (error) {
+
+        history.notificationStatus.browser = "FAILED";
+
+        console.error(
+            `Browser notification failed: ${error.message}`
+        );
+    }
+}
+
+    // ==========================================
+    // EMAIL NOTIFICATION
+    // ==========================================
+
+    if (
+        reminder.notificationType === "EMAIL" ||
+        reminder.notificationType === "BOTH"
+    ) {
+        try {
+
+            const user = await User.findById(reminder.user)
+                .select("email firstName");
+
+            if (!user || !user.email) {
+                history.notificationStatus.email = "FAILED";
+            } else {
+
+              const emailResult = await sendReminderEmailWithRetry({
+    email: user.email,
+    title: reminder.title,
+    category: reminder.category,
+    reminderType: reminder.reminderType,
+    triggeredAt: now
+});
+
+history.retry.emailAttempts = emailResult.attempts;
+history.retry.lastEmailAttemptAt = new Date();
+
+if (emailResult.success) {
+
+    history.notificationStatus.email = "SENT";
+    history.retry.emailError = null;
+
+} else {
+
+    history.notificationStatus.email = "FAILED";
+    history.retry.emailError = emailResult.error;
+}
+
+                history.notificationStatus.email = "SENT";
+            }
+
+        } catch (error) {
+
+            history.notificationStatus.email = "FAILED";
+
+            console.error(
+                `Email notification failed: ${error.message}`
+            );
+        }
+    }
+    await history.save();
+
+    reminder.lastTriggeredAt = now;
+    await reminder.save();
+
+    // ==========================================
+    // UPDATE LAST TRIGGERED
+    // ==========================================
+
+    reminder.lastTriggeredAt = now;
+
+    await reminder.save();
+
+    console.log(
+        `Reminder triggered successfully: ${reminder.title}`
+    );
+
+    return history;
 };
 
 const startReminderScheduler = (io) => {
@@ -81,8 +216,51 @@ const startReminderScheduler = (io) => {
                         continue;
                     }
                 }
-                // ONE TIME REMINDER
+
                 // ==========================================
+                // SNOOZED REMINDER
+                // ==========================================
+
+                const snoozedHistory = await ReminderHistory.findOne({
+                    reminder: reminder._id,
+                    user: reminder.user,
+                    status: "SNOOZED",
+                    snoozedUntil: { $lte: now }
+                }).sort({ snoozedUntil: 1 });
+
+                if (snoozedHistory) {
+
+                    console.log(
+                        `Snoozed reminder is due again: ${reminder.title}`
+                    );
+
+                    // Mark previous history as triggered again
+                    snoozedHistory.status = "TRIGGERED";
+                    snoozedHistory.snoozedUntil = null;
+
+                    await snoozedHistory.save();
+
+                    // Send notification
+                    io.emit("reminder-due", {
+                        reminderId: reminder._id,
+                        historyId: snoozedHistory._id,
+                        title: reminder.title,
+                        category: reminder.category,
+                        reminderType: reminder.reminderType,
+                        triggeredAt: now
+                    });
+
+                    reminder.lastTriggeredAt = now;
+
+                    await reminder.save();
+
+                    console.log(
+                        `Snoozed reminder triggered successfully: ${reminder.title}`
+                    );
+
+                    continue;
+                }
+
                 // ONE TIME REMINDER
                 // ==========================================
 
@@ -100,21 +278,13 @@ const startReminderScheduler = (io) => {
                             `One-time reminder is due: ${reminder.title}`
                         );
 
-                        // Send notification event
-                        io.emit("reminder-due", {
-                            reminderId: reminder._id,
-                            title: reminder.title,
-                            category: reminder.category
-                        });
+                        // Trigger notification + create history
+                        await triggerReminder(reminder, io, now);
 
-                        // Update reminder
-                        reminder.lastTriggeredAt = now;
+                        // Disable one-time reminder
                         reminder.isActive = false;
 
                         await reminder.save();
-
-                        // Create history
-                        await createReminderHistory(reminder, now);
 
                         console.log(
                             `One-time reminder triggered successfully: ${reminder.title}`
@@ -140,15 +310,9 @@ const startReminderScheduler = (io) => {
                         console.log(
                             `Daily reminder is due: ${reminder.title}`
                         );
-                        io.emit("reminder-due", {
-                            reminderId: reminder._id,
-                            title: reminder.title,
-                            category: reminder.category
-                        });
-                        reminder.lastTriggeredAt = now;
 
-                        await reminder.save();
-                        await createReminderHistory(reminder, now);
+                        await triggerReminder(reminder, io, now);
+
                     }
                 }
 
@@ -183,10 +347,8 @@ const startReminderScheduler = (io) => {
                             `Hourly reminder is due: ${reminder.title}`
                         );
 
-                        reminder.lastTriggeredAt = now;
+                        await triggerReminder(reminder, io, now);
 
-                        await reminder.save();
-                        await createReminderHistory(reminder, now);
 
                     } else {
 
@@ -204,9 +366,8 @@ const startReminderScheduler = (io) => {
                                 `Hourly reminder is due: ${reminder.title}`
                             );
 
-                            reminder.lastTriggeredAt = now;
+                            await triggerReminder(reminder, io, now);
 
-                            await reminder.save();
                         }
                     }
                 }
@@ -258,16 +419,8 @@ const startReminderScheduler = (io) => {
                         `Weekly reminder is due: ${reminder.title}`
                     );
 
-                    io.emit("reminder-due", {
-                        reminderId: reminder._id,
-                        title: reminder.title,
-                        category: reminder.category
-                    });
 
-                    reminder.lastTriggeredAt = now;
-
-                    await reminder.save();
-                    await createReminderHistory(reminder, now);
+                    await triggerReminder(reminder, io, now);
                 }
 
                 // CUSTOM REMINDER
@@ -281,16 +434,7 @@ const startReminderScheduler = (io) => {
                             `Custom reminder is due: ${reminder.title}`
                         );
 
-                        io.emit("reminder-due", {
-                            reminderId: reminder._id,
-                            title: reminder.title,
-                            category: reminder.category
-                        });
-
-                        reminder.lastTriggeredAt = now;
-
-                        await reminder.save();
-                        await createReminderHistory(reminder, now);
+                        await triggerReminder(reminder, io, now);
 
                     } else {
 
@@ -317,23 +461,15 @@ const startReminderScheduler = (io) => {
 
                         if (
                             intervalMilliseconds > 0 &&
-                            now.getTime() - lastTriggeredTime >= intervalMilliseconds
+                            now.getTime() - lastTriggeredTime >=
+                            intervalMilliseconds
                         ) {
 
                             console.log(
                                 `Custom reminder is due: ${reminder.title}`
                             );
 
-                            io.emit("reminder-due", {
-                                reminderId: reminder._id,
-                                title: reminder.title,
-                                category: reminder.category
-                            });
-
-                            reminder.lastTriggeredAt = now;
-
-                            await reminder.save();
-                            await createReminderHistory(reminder, now);
+                            await triggerReminder(reminder, io, now);
                         }
                     }
                 }
@@ -341,30 +477,30 @@ const startReminderScheduler = (io) => {
             }
 
             const triggeredHistories = await ReminderHistory.find({
-    status: "TRIGGERED"
-});
+                status: "TRIGGERED"
+            });
 
-for (const history of triggeredHistories) {
+            for (const history of triggeredHistories) {
 
-    const now = new Date();
+                const now = new Date();
 
-    // Testing ke liye 1 minute
-    const missedAfter = 60 * 1000;
+                // Testing ke liye 1 minute
+                const missedAfter = 60 * 1000;
 
-    const elapsedTime =
-        now.getTime() - history.triggeredAt.getTime();
+                const elapsedTime =
+                    now.getTime() - history.triggeredAt.getTime();
 
-    if (elapsedTime >= missedAfter) {
+                if (elapsedTime >= missedAfter) {
 
-        history.status = "MISSED";
+                    history.status = "MISSED";
 
-        await history.save();
+                    await history.save();
 
-        console.log(
-            `Reminder marked as MISSED: ${history.title}`
-        );
-    }
-}
+                    console.log(
+                        `Reminder marked as MISSED: ${history.title}`
+                    );
+                }
+            }
 
         } catch (error) {
 

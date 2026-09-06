@@ -5,89 +5,228 @@ import ApiResponse from "../utils/apiResponse.js";
 
 
 export const getReminderHistory = asyncHandler(async (req, res) => {
-
     const {
         page = 1,
         limit = 10,
         reminderId,
         status,
         category,
-        reminderType
+        reminderType,
+        search,
+        startDate,
+        endDate,
+        sort = "latest"
     } = req.query;
 
+    // ==========================================
+    // PAGINATION
+    // ==========================================
 
-    // Convert pagination values
-    const currentPage = Math.max(
-        parseInt(page),
-        1
-    );
+    const currentPage = Math.max(parseInt(page) || 1, 1);
 
     const itemsPerPage = Math.min(
-        Math.max(parseInt(limit), 1),
+        Math.max(parseInt(limit) || 10, 1),
         100
     );
 
     const skip = (currentPage - 1) * itemsPerPage;
 
+    // ==========================================
+    // BASE FILTER
+    // ==========================================
 
-    // Base filter
     const filter = {
         user: req.user._id
     };
 
+    // ==========================================
+    // REMINDER FILTER
+    // ==========================================
 
-    // Filter by reminder
     if (reminderId) {
         filter.reminder = reminderId;
     }
 
+    // ==========================================
+    // STATUS FILTER
+    // ==========================================
 
-    // Filter by status
     if (status) {
+        const validStatuses = [
+            "TRIGGERED",
+            "COMPLETED",
+            "MISSED",
+            "DISMISSED"
+        ];
+
+        if (!validStatuses.includes(status)) {
+            throw new ApiError(
+                400,
+                "Invalid history status."
+            );
+        }
+
         filter.status = status;
     }
 
+    // ==========================================
+    // CATEGORY FILTER
+    // ==========================================
 
-    // Filter by category
     if (category) {
+        const validCategories = [
+            "MEDICINE",
+            "EXERCISE",
+            "MEAL",
+            "WATER",
+            "APPOINTMENT",
+            "CUSTOM"
+        ];
+
+        if (!validCategories.includes(category)) {
+            throw new ApiError(
+                400,
+                "Invalid reminder category."
+            );
+        }
+
         filter.category = category;
     }
 
+    // ==========================================
+    // REMINDER TYPE FILTER
+    // ==========================================
 
-    // Filter by reminder type
     if (reminderType) {
+        const validReminderTypes = [
+            "ONE_TIME",
+            "DAILY",
+            "HOURLY",
+            "WEEKLY",
+            "CUSTOM"
+        ];
+
+        if (!validReminderTypes.includes(reminderType)) {
+            throw new ApiError(
+                400,
+                "Invalid reminder type."
+            );
+        }
+
         filter.reminderType = reminderType;
     }
 
+    // ==========================================
+    // SEARCH BY TITLE
+    // ==========================================
 
-    // Get total records
+    if (search && search.trim()) {
+        filter.title = {
+            $regex: search.trim(),
+            $options: "i"
+        };
+    }
+
+    // ==========================================
+    // DATE RANGE FILTER
+    // ==========================================
+
+    if (startDate || endDate) {
+        filter.triggeredAt = {};
+
+        if (startDate) {
+            const start = new Date(startDate);
+
+            if (isNaN(start.getTime())) {
+                throw new ApiError(
+                    400,
+                    "Invalid start date."
+                );
+            }
+
+            start.setHours(0, 0, 0, 0);
+
+            filter.triggeredAt.$gte = start;
+        }
+
+        if (endDate) {
+            const end = new Date(endDate);
+
+            if (isNaN(end.getTime())) {
+                throw new ApiError(
+                    400,
+                    "Invalid end date."
+                );
+            }
+
+            end.setHours(23, 59, 59, 999);
+
+            filter.triggeredAt.$lte = end;
+        }
+
+        if (
+            filter.triggeredAt.$gte &&
+            filter.triggeredAt.$lte &&
+            filter.triggeredAt.$gte >
+                filter.triggeredAt.$lte
+        ) {
+            throw new ApiError(
+                400,
+                "Start date cannot be greater than end date."
+            );
+        }
+    }
+
+    // ==========================================
+    // SORTING
+    // ==========================================
+
+    let sortOption = {
+        triggeredAt: -1
+    };
+
+    if (sort === "oldest") {
+        sortOption = {
+            triggeredAt: 1
+        };
+    }
+
+    // ==========================================
+    // TOTAL RECORDS
+    // ==========================================
+
     const totalRecords =
         await ReminderHistory.countDocuments(filter);
 
+    // ==========================================
+    // FETCH HISTORY
+    // ==========================================
 
-    // Get paginated history
     const history =
         await ReminderHistory.find(filter)
             .populate(
                 "reminder",
                 "title category reminderType"
             )
-            .sort({
-                triggeredAt: -1
-            })
+            .sort(sortOption)
             .skip(skip)
             .limit(itemsPerPage);
 
+    // ==========================================
+    // PAGINATION
+    // ==========================================
 
-    const totalPages = Math.ceil(
-        totalRecords / itemsPerPage
-    );
+    const totalPages =
+        Math.ceil(totalRecords / itemsPerPage);
 
+    // ==========================================
+    // RESPONSE
+    // ==========================================
 
     return res.status(200).json(
         new ApiResponse(
             200,
-            "Reminder history fetched successfully",
+            "Reminder history fetched successfully.",
             {
                 history,
 
@@ -96,12 +235,22 @@ export const getReminderHistory = asyncHandler(async (req, res) => {
                     itemsPerPage,
                     totalRecords,
                     totalPages,
-
                     hasNextPage:
                         currentPage < totalPages,
-
                     hasPreviousPage:
                         currentPage > 1
+                },
+
+                filters: {
+                    search: search || null,
+                    reminderId: reminderId || null,
+                    status: status || null,
+                    category: category || null,
+                    reminderType:
+                        reminderType || null,
+                    startDate: startDate || null,
+                    endDate: endDate || null,
+                    sort
                 }
             }
         )
@@ -760,3 +909,67 @@ const productivitySummary = {
         )
     );
 });
+
+export const snoozeReminderHistory = asyncHandler(
+    async (req, res) => {
+
+        const { id } = req.params;
+        const { snoozeMinutes } = req.body;
+
+        if (!snoozeMinutes) {
+            throw new ApiError(
+                400,
+                "Snooze minutes are required."
+            );
+        }
+
+        if (
+            !Number.isInteger(snoozeMinutes) ||
+            snoozeMinutes <= 0
+        ) {
+            throw new ApiError(
+                400,
+                "Snooze minutes must be a positive integer."
+            );
+        }
+
+        const history = await ReminderHistory.findOne({
+            _id: id,
+            user: req.user._id
+        });
+
+        if (!history) {
+            throw new ApiError(
+                404,
+                "Reminder history not found."
+            );
+        }
+
+        if (history.status !== "TRIGGERED") {
+            throw new ApiError(
+                400,
+                "Only triggered reminders can be snoozed."
+            );
+        }
+
+        const snoozedUntil = new Date(
+            Date.now() + snoozeMinutes * 60 * 1000
+        );
+
+        history.status = "SNOOZED";
+        history.snoozedUntil = snoozedUntil;
+
+        await history.save();
+
+        return res.status(200).json(
+            new ApiResponse(
+                200,
+                "Reminder snoozed successfully.",
+                {
+                    history,
+                    snoozedUntil
+                }
+            )
+        );
+    }
+);

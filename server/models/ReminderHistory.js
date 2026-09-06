@@ -32,7 +32,35 @@ const reminderHistorySchema = new mongoose.Schema(
             ],
             required: [true, "Reminder category is required"],
         },
+notificationStatus: {
+    browser: {
+        type: String,
+        enum: ["SENT", "FAILED", "NOT_SENT"],
+        default: "NOT_SENT"
+    },
 
+    email: {
+        type: String,
+        enum: ["SENT", "FAILED", "NOT_SENT"],
+        default: "NOT_SENT"
+    }
+},
+retry: {
+    emailAttempts: {
+        type: Number,
+        default: 0
+    },
+
+    lastEmailAttemptAt: {
+        type: Date,
+        default: null
+    },
+
+    emailError: {
+        type: String,
+        default: null
+    }
+},
         reminderType: {
             type: String,
             enum: [
@@ -44,6 +72,10 @@ const reminderHistorySchema = new mongoose.Schema(
             ],
             required: [true, "Reminder type is required"],
         },
+        snoozedUntil: {
+    type: Date,
+    default: null
+},
             status: {
             type: String,
             enum: [
@@ -51,6 +83,7 @@ const reminderHistorySchema = new mongoose.Schema(
                 "COMPLETED",
                 "MISSED",
                 "DISMISSED",
+                "SNOOZED"
             ],
             default: "TRIGGERED",
         },

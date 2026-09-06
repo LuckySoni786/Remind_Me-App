@@ -43,11 +43,24 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    notificationPreferences: {
+    browser: {
+        type: Boolean,
+        default: true
+    },
+
+    email: {
+        type: Boolean,
+        default: true
+    }
+}
   },
   {
     timestamps: true,
   }
 );
+
+
 
 userSchema.pre("save", async function () {
   try {
