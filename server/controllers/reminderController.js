@@ -3,7 +3,10 @@ import Medicine from "../models/Medicine.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/apiResponse.js";
-
+import ReminderHistory from "../models/ReminderHistory.js";
+import {
+    getNextReminderTime
+} from "../utils/getNextReminderTime.js";
 export const createReminder = asyncHandler(async (req, res) => {
 
     const {
@@ -296,6 +299,116 @@ if (reminderType === "ONE_TIME") {
         )
     );
 });
+
+const validateReminderData = (data) => {
+    const {
+        reminderType,
+        scheduledAt,
+        time,
+        daysOfWeek,
+        intervalMinutes,
+        customInterval,
+        customIntervalUnit
+    } = data;
+
+    if (!reminderType) {
+        throw new ApiError(400, "Reminder type is required.");
+    }
+
+    // ONE_TIME
+    if (reminderType === "ONE_TIME") {
+        if (!scheduledAt) {
+            throw new ApiError(
+                400,
+                "scheduledAt is required for one-time reminder."
+            );
+        }
+
+        if (new Date(scheduledAt) <= new Date()) {
+            throw new ApiError(
+                400,
+                "scheduledAt must be a future date and time."
+            );
+        }
+    }
+
+    // DAILY
+    if (reminderType === "DAILY") {
+        if (!time) {
+            throw new ApiError(
+                400,
+                "time is required for daily reminder."
+            );
+        }
+    }
+
+    // WEEKLY
+    if (reminderType === "WEEKLY") {
+        if (!time) {
+            throw new ApiError(
+                400,
+                "time is required for weekly reminder."
+            );
+        }
+
+        if (!daysOfWeek || !Array.isArray(daysOfWeek) || daysOfWeek.length === 0) {
+            throw new ApiError(
+                400,
+                "daysOfWeek is required for weekly reminder."
+            );
+        }
+    }
+
+    // HOURLY
+    if (reminderType === "HOURLY") {
+        if (!intervalMinutes) {
+            throw new ApiError(
+                400,
+                "intervalMinutes is required for hourly reminder."
+            );
+        }
+
+        if (!Number.isInteger(intervalMinutes) || intervalMinutes <= 0) {
+            throw new ApiError(
+                400,
+                "intervalMinutes must be a positive integer."
+            );
+        }
+    }
+
+    // CUSTOM
+    if (reminderType === "CUSTOM") {
+        if (!customInterval) {
+            throw new ApiError(
+                400,
+                "customInterval is required for custom reminder."
+            );
+        }
+
+        if (!Number.isInteger(customInterval) || customInterval <= 0) {
+            throw new ApiError(
+                400,
+                "customInterval must be a positive integer."
+            );
+        }
+
+        if (!customIntervalUnit) {
+            throw new ApiError(
+                400,
+                "customIntervalUnit is required for custom reminder."
+            );
+        }
+
+        const validUnits = ["MINUTES", "HOURS", "DAYS"];
+
+        if (!validUnits.includes(customIntervalUnit)) {
+            throw new ApiError(
+                400,
+                "Invalid customIntervalUnit."
+            );
+        }
+    }
+};
 
 export const getReminders = asyncHandler(async (req, res) => {
 
@@ -837,6 +950,144 @@ if (finalReminderType === "ONE_TIME") {
         )
     );
 });
+
+export const getReminderDashboard = asyncHandler(
+    async (req, res) => {
+
+        const userId = req.user._id;
+
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+
+        const endOfDay = new Date();
+        endOfDay.setHours(23, 59, 59, 999);
+
+        const [
+    totalReminders,
+    activeReminders,
+    completedToday,
+    missedToday,
+    snoozedReminders,
+    pendingToday
+] = await Promise.all([
+
+            Reminder.countDocuments({
+                user: userId
+            }),
+
+            Reminder.countDocuments({
+                user: userId,
+                isActive: true
+            }),
+
+            ReminderHistory.countDocuments({
+                user: userId,
+                status: "COMPLETED",
+                triggeredAt: {
+                    $gte: startOfDay,
+                    $lte: endOfDay
+                }
+            }),
+
+            ReminderHistory.countDocuments({
+                user: userId,
+                status: "MISSED",
+                triggeredAt: {
+                    $gte: startOfDay,
+                    $lte: endOfDay
+                }
+            }),
+
+            ReminderHistory.countDocuments({
+                user: userId,
+                status: "SNOOZED"
+            }),
+
+            ReminderHistory.countDocuments({
+                user: userId,
+                status: "TRIGGERED",
+                triggeredAt: {
+                    $gte: startOfDay,
+                    $lte: endOfDay
+                }
+            }),
+
+            
+        ]);
+
+        const activeReminderList = await Reminder.find({
+    user: userId,
+    isActive: true
+}).select(
+    "title category reminderType scheduledAt time daysOfWeek"
+);
+
+let upcomingReminder = null;
+let nextReminderTime = null;
+
+for (const reminder of activeReminderList) {
+
+    const nextTime = getNextReminderTime(
+        reminder,
+        new Date()
+    );
+
+    if (!nextTime) {
+        continue;
+    }
+
+    if (
+        !nextReminderTime ||
+        nextTime < nextReminderTime
+    ) {
+        nextReminderTime = nextTime;
+
+        upcomingReminder = {
+            reminderId: reminder._id,
+            title: reminder.title,
+            category: reminder.category,
+            reminderType: reminder.reminderType,
+            scheduledAt: nextTime
+        };
+    }
+}
+
+        const totalToday =
+            completedToday +
+            missedToday +
+            pendingToday;
+
+        const completionRate =
+            totalToday > 0
+                ? Number(
+                    (
+                        (completedToday / totalToday) *
+                        100
+                    ).toFixed(2)
+                )
+                : 0;
+
+        return res.status(200).json(
+            new ApiResponse(
+                200,
+                "Reminder dashboard fetched successfully.",
+                {
+                    summary: {
+                        totalReminders,
+                        activeReminders,
+                        completedToday,
+                        pendingToday,
+                        missedToday,
+                        snoozedReminders,
+                        completionRate
+                    },
+
+                    upcomingReminder
+                }
+            )
+        );
+    }
+);
 
 export const deleteReminder = asyncHandler(async (req, res) => {
 
