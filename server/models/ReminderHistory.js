@@ -32,6 +32,43 @@ const reminderHistorySchema = new mongoose.Schema(
             ],
             required: [true, "Reminder category is required"],
         },
+
+        notification: {
+    browser: {
+        sent: {
+            type: Boolean,
+            default: false
+        },
+        sentAt: {
+            type: Date,
+            default: null
+        }
+    },
+
+    email: {
+        sent: {
+            type: Boolean,
+            default: false
+        },
+        sentAt: {
+            type: Date,
+            default: null
+        },
+        attempts: {
+            type: Number,
+            default: 0
+        },
+        lastAttemptAt: {
+            type: Date,
+            default: null
+        },
+        error: {
+            type: String,
+            default: null
+        }
+    }
+},
+
 notificationStatus: {
     browser: {
         type: String,

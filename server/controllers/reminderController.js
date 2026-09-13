@@ -4,6 +4,7 @@ import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/apiResponse.js";
 import ReminderHistory from "../models/ReminderHistory.js";
+import { checkReminderConflict } from "../utils/checkReminderConflict.js";
 import {
     getNextReminderTime
 } from "../utils/getNextReminderTime.js";
@@ -142,7 +143,6 @@ if (reminderType === "ONE_TIME") {
     const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
     // Daily validation
-    // Daily validation
     if (reminderType === "DAILY") {
 
         if (!time) {
@@ -269,6 +269,24 @@ if (reminderType === "ONE_TIME") {
             );
         }
     }
+
+    const conflict = await checkReminderConflict({
+    userId: req.user._id,
+    reminderType,
+    scheduledAt,
+    time,
+    daysOfWeek,
+    intervalMinutes,
+    customInterval,
+    customIntervalUnit
+});
+
+if (conflict) {
+    throw new ApiError(
+        409,
+        "A similar active reminder already exists."
+    );
+}
 
     const reminder = await Reminder.create({
         title,
@@ -847,6 +865,24 @@ if (finalReminderType === "ONE_TIME") {
         }
     }
 
+const conflict = await checkReminderConflict({
+    userId: req.user._id,
+    reminderType: finalReminderType,
+    scheduledAt: finalScheduledAt,
+    time: finalTime,
+    daysOfWeek: finalDaysOfWeek,
+    intervalMinutes: finalIntervalMinutes,
+    customInterval: finalCustomInterval,
+    customIntervalUnit: finalCustomIntervalUnit,
+    excludeReminderId: id
+});
+
+if (conflict) {
+    throw new ApiError(
+        409,
+        "A similar active reminder already exists."
+    );
+}
 
     // ==========================================
     // UPDATE FIELDS

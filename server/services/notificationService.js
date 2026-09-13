@@ -75,10 +75,10 @@ export const sendReminderEmail = async ({
 };
 
 
+
 export const sendReminderEmailWithRetry = async (emailData) => {
 
     const maxAttempts = 3;
-
     let lastError = null;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -103,7 +103,8 @@ export const sendReminderEmailWithRetry = async (emailData) => {
             );
 
             if (attempt < maxAttempts) {
-                await new Promise(resolve =>
+
+                await new Promise((resolve) =>
                     setTimeout(resolve, 2000)
                 );
             }

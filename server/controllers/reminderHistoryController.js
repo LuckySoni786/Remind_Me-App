@@ -2,6 +2,7 @@ import ReminderHistory from "../models/ReminderHistory.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/apiResponse.js";
+import Reminder from "../models/Reminder.js";
 
 
 export const getReminderHistory = asyncHandler(async (req, res) => {
@@ -956,8 +957,22 @@ export const snoozeReminderHistory = asyncHandler(
             Date.now() + snoozeMinutes * 60 * 1000
         );
 
+        const reminder = await Reminder.findOne({
+    _id: history.reminder,
+    user: req.user._id
+});
+
+if (!reminder) {
+    throw new ApiError(404, "Reminder not found.");
+}
+
         history.status = "SNOOZED";
         history.snoozedUntil = snoozedUntil;
+
+        if (reminder.reminderType === "ONE_TIME") {
+    reminder.isActive = true;
+    await reminder.save();
+}
 
         await history.save();
 

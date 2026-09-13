@@ -149,6 +149,33 @@ if (emailResult.success) {
     return history;
 };
 
+const triggerSnoozedReminder = async (
+    reminder,
+    history,
+    io,
+    now
+) => {
+
+    history.status = "TRIGGERED";
+    history.snoozedUntil = null;
+    history.triggeredAt = now;
+
+    await history.save();
+
+    io.emit("reminder-due", {
+        reminderId: reminder._id,
+        title: reminder.title,
+        category: reminder.category,
+        reminderType: reminder.reminderType,
+        snoozed: true,
+        triggeredAt: now
+    });
+
+    reminder.lastTriggeredAt = now;
+
+    await reminder.save();
+};
+
 const startReminderScheduler = (io) => {
 
     cron.schedule("* * * * *", async () => {
@@ -252,6 +279,10 @@ const startReminderScheduler = (io) => {
 
                     reminder.lastTriggeredAt = now;
 
+                    if (reminder.reminderType === "ONE_TIME") {
+                    reminder.isActive = false;
+                    }
+                    
                     await reminder.save();
 
                     console.log(
