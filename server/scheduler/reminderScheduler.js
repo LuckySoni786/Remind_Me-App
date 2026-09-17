@@ -48,98 +48,105 @@ const triggerReminder = async (reminder, io, now) => {
     // BROWSER NOTIFICATION
     // ==========================================
 
-   if (
-    browserEnabled &&
-    (
-        reminder.notificationType === "BROWSER" ||
-        reminder.notificationType === "BOTH"
-    )
-) {
-    try {
+    if (
+        browserEnabled &&
+        (
+            reminder.notificationType === "BROWSER" ||
+            reminder.notificationType === "BOTH"
+        )
+    ) {
+        try {
 
-        io.emit("reminder-due", {
-            reminderId: reminder._id,
-            historyId: history._id,
-            title: reminder.title,
-            category: reminder.category,
-            reminderType: reminder.reminderType,
-            triggeredAt: now
-        });
+            io.emit("reminder-due", {
+                reminderId: reminder._id,
+                historyId: history._id,
+                title: reminder.title,
+                category: reminder.category,
+                reminderType: reminder.reminderType,
+                triggeredAt: now
+            });
 
-        history.notificationStatus.browser = "SENT";
+            history.notificationStatus.browser = "SENT";
 
-    } catch (error) {
+        } catch (error) {
 
-        history.notificationStatus.browser = "FAILED";
+            history.notificationStatus.browser = "FAILED";
 
-        console.error(
-            `Browser notification failed: ${error.message}`
-        );
+            console.error(
+                `Browser notification failed: ${error.message}`
+            );
+        }
     }
-}
 
     // ==========================================
     // EMAIL NOTIFICATION
     // ==========================================
 
     if (
-        reminder.notificationType === "EMAIL" ||
-        reminder.notificationType === "BOTH"
+        emailEnabled &&
+        (
+            reminder.notificationType === "EMAIL" ||
+            reminder.notificationType === "BOTH"
+        )
     ) {
         try {
 
-            const user = await User.findById(reminder.user)
-                .select("email firstName");
+            if (!user.email) {
 
-            if (!user || !user.email) {
                 history.notificationStatus.email = "FAILED";
+                history.retry.emailError = "User email not found.";
+
             } else {
 
-              const emailResult = await sendReminderEmailWithRetry({
-    email: user.email,
-    title: reminder.title,
-    category: reminder.category,
-    reminderType: reminder.reminderType,
-    triggeredAt: now
-});
+                const emailResult = await sendReminderEmailWithRetry({
+                    email: user.email,
+                    title: reminder.title,
+                    category: reminder.category,
+                    reminderType: reminder.reminderType,
+                    triggeredAt: now
+                });
 
-history.retry.emailAttempts = emailResult.attempts;
-history.retry.lastEmailAttemptAt = new Date();
+                history.retry.emailAttempts =
+                    emailResult.attempts;
 
-if (emailResult.success) {
+                history.retry.lastEmailAttemptAt =
+                    new Date();
 
-    history.notificationStatus.email = "SENT";
-    history.retry.emailError = null;
+                if (emailResult.success) {
 
-} else {
+                    history.notificationStatus.email = "SENT";
+                    history.retry.emailError = null;
 
-    history.notificationStatus.email = "FAILED";
-    history.retry.emailError = emailResult.error;
-}
+                } else {
 
-                history.notificationStatus.email = "SENT";
+                    history.notificationStatus.email = "FAILED";
+                    history.retry.emailError =
+                        emailResult.error;
+                }
             }
 
         } catch (error) {
 
             history.notificationStatus.email = "FAILED";
+            history.retry.emailError = error.message;
 
             console.error(
                 `Email notification failed: ${error.message}`
             );
         }
     }
-    await history.save();
 
-    reminder.lastTriggeredAt = now;
-    await reminder.save();
+    // ==========================================
+    // SAVE HISTORY
+    // ==========================================
+
+    await history.save();
 
     // ==========================================
     // UPDATE LAST TRIGGERED
     // ==========================================
 
     reminder.lastTriggeredAt = now;
-
     await reminder.save();
 
     console.log(
@@ -156,24 +163,149 @@ const triggerSnoozedReminder = async (
     now
 ) => {
 
+    const user = await User.findById(reminder.user)
+        .select("email firstName notificationPreferences");
+
+    if (!user) {
+        console.log(
+            `User not found for snoozed reminder: ${reminder.title}`
+        );
+
+        return null;
+    }
+
+    const browserEnabled =
+        user.notificationPreferences?.browser ?? true;
+
+    const emailEnabled =
+        user.notificationPreferences?.email ?? true;
+
+    // ==========================================
+    // UPDATE SNOOZED HISTORY
+    // ==========================================
+
     history.status = "TRIGGERED";
     history.snoozedUntil = null;
     history.triggeredAt = now;
 
+    // ==========================================
+    // BROWSER NOTIFICATION
+    // ==========================================
+
+    if (
+        browserEnabled &&
+        (
+            reminder.notificationType === "BROWSER" ||
+            reminder.notificationType === "BOTH"
+        )
+    ) {
+        try {
+
+            io.emit("reminder-due", {
+                reminderId: reminder._id,
+                historyId: history._id,
+                title: reminder.title,
+                category: reminder.category,
+                reminderType: reminder.reminderType,
+                snoozed: true,
+                triggeredAt: now
+            });
+
+            history.notificationStatus.browser = "SENT";
+
+        } catch (error) {
+
+            history.notificationStatus.browser = "FAILED";
+
+            console.error(
+                `Browser notification failed: ${error.message}`
+            );
+        }
+    }
+
+    // ==========================================
+    // EMAIL NOTIFICATION
+    // ==========================================
+
+    if (
+        emailEnabled &&
+        (
+            reminder.notificationType === "EMAIL" ||
+            reminder.notificationType === "BOTH"
+        )
+    ) {
+        try {
+
+            if (!user.email) {
+
+                history.notificationStatus.email = "FAILED";
+                history.retry.emailError =
+                    "User email not found.";
+
+            } else {
+
+                const emailResult =
+                    await sendReminderEmailWithRetry({
+                        email: user.email,
+                        title: reminder.title,
+                        category: reminder.category,
+                        reminderType: reminder.reminderType,
+                        triggeredAt: now
+                    });
+
+                history.retry.emailAttempts =
+                    emailResult.attempts;
+
+                history.retry.lastEmailAttemptAt =
+                    new Date();
+
+                if (emailResult.success) {
+
+                    history.notificationStatus.email = "SENT";
+                    history.retry.emailError = null;
+
+                } else {
+
+                    history.notificationStatus.email = "FAILED";
+                    history.retry.emailError =
+                        emailResult.error;
+                }
+            }
+
+        } catch (error) {
+
+            history.notificationStatus.email = "FAILED";
+            history.retry.emailError = error.message;
+
+            console.error(
+                `Email notification failed: ${error.message}`
+            );
+        }
+    }
+
+    // ==========================================
+    // SAVE HISTORY
+    // ==========================================
+
     await history.save();
 
-    io.emit("reminder-due", {
-        reminderId: reminder._id,
-        title: reminder.title,
-        category: reminder.category,
-        reminderType: reminder.reminderType,
-        snoozed: true,
-        triggeredAt: now
-    });
+    // ==========================================
+    // UPDATE LAST TRIGGERED
+    // ==========================================
 
     reminder.lastTriggeredAt = now;
 
+    if (reminder.reminderType === "ONE_TIME") {
+        reminder.isActive = false;
+    }
+
     await reminder.save();
+
+    console.log(
+        `Snoozed reminder triggered successfully: ${reminder.title}`
+    );
+
+    return history;
 };
 
 const startReminderScheduler = (io) => {
@@ -249,48 +381,22 @@ const startReminderScheduler = (io) => {
                 // ==========================================
 
                 const snoozedHistory = await ReminderHistory.findOne({
-                    reminder: reminder._id,
-                    user: reminder.user,
-                    status: "SNOOZED",
-                    snoozedUntil: { $lte: now }
-                }).sort({ snoozedUntil: 1 });
+    reminder: reminder._id,
+    user: reminder.user,
+    status: "SNOOZED",
+    snoozedUntil: { $lte: now }
+}).sort({ snoozedUntil: 1 });
 
-                if (snoozedHistory) {
+if (snoozedHistory) {
+    await triggerSnoozedReminder(
+        reminder,
+        snoozedHistory,
+        io,
+        now
+    );
 
-                    console.log(
-                        `Snoozed reminder is due again: ${reminder.title}`
-                    );
-
-                    // Mark previous history as triggered again
-                    snoozedHistory.status = "TRIGGERED";
-                    snoozedHistory.snoozedUntil = null;
-
-                    await snoozedHistory.save();
-
-                    // Send notification
-                    io.emit("reminder-due", {
-                        reminderId: reminder._id,
-                        historyId: snoozedHistory._id,
-                        title: reminder.title,
-                        category: reminder.category,
-                        reminderType: reminder.reminderType,
-                        triggeredAt: now
-                    });
-
-                    reminder.lastTriggeredAt = now;
-
-                    if (reminder.reminderType === "ONE_TIME") {
-                    reminder.isActive = false;
-                    }
-                    
-                    await reminder.save();
-
-                    console.log(
-                        `Snoozed reminder triggered successfully: ${reminder.title}`
-                    );
-
-                    continue;
-                }
+    continue;
+}
 
                 // ONE TIME REMINDER
                 // ==========================================

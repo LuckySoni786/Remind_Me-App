@@ -38,6 +38,95 @@ export const createReminder = asyncHandler(async (req, res) => {
         );
     }
 
+    // Category validation
+const validCategories = [
+    "MEDICINE",
+    "EXERCISE",
+    "MEAL",
+    "WATER",
+    "APPOINTMENT",
+    "CUSTOM"
+];
+
+if (!validCategories.includes(finalCategory)) {
+    throw new ApiError(
+        400,
+        "Invalid reminder category."
+    );
+}
+
+
+// Reminder type validation
+const validReminderTypes = [
+    "ONE_TIME",
+    "DAILY",
+    "HOURLY",
+    "WEEKLY",
+    "CUSTOM"
+];
+
+if (!validReminderTypes.includes(reminderType)) {
+    throw new ApiError(
+        400,
+        "Invalid reminder type."
+    );
+}
+
+
+// Notification type validation
+const validNotificationTypes = [
+    "BROWSER",
+    "EMAIL",
+    "BOTH"
+];
+
+const finalNotificationType =
+    notificationType !== undefined
+        ? notificationType
+        : reminder.notificationType;
+
+if (
+    finalNotificationType &&
+    !validNotificationTypes.includes(finalNotificationType)
+) {
+    throw new ApiError(
+        400,
+        "Invalid notification type."
+    );
+}
+
+// Days of week validation
+const validDays = [
+    "SUNDAY",
+    "MONDAY",
+    "TUESDAY",
+    "WEDNESDAY",
+    "THURSDAY",
+    "FRIDAY",
+    "SATURDAY"
+];
+
+if (finalDaysOfWeek) {
+
+    if (!Array.isArray(finalDaysOfWeek)) {
+        throw new ApiError(
+            400,
+            "Days of week must be an array."
+        );
+    }
+
+    const hasInvalidDay = finalDaysOfWeek.some(
+        (day) => !validDays.includes(day)
+    );
+
+    if (hasInvalidDay) {
+        throw new ApiError(
+            400,
+            "Invalid day in daysOfWeek."
+        );
+    }
+}
+
     if (startDate && endDate) {
         const start = new Date(startDate);
         const end = new Date(endDate);
@@ -91,6 +180,21 @@ if (reminderType === "ONE_TIME") {
     }
 
     const scheduled = new Date(scheduledAt);
+
+
+if (isNaN(scheduled.getTime())) {
+    throw new ApiError(
+        400,
+        "Invalid scheduled date and time."
+    );
+}
+
+if (scheduled <= new Date()) {
+    throw new ApiError(
+        400,
+        "Scheduled date and time must be in the future."
+    );
+}
 
     if (isNaN(scheduled.getTime())) {
         throw new ApiError(
@@ -198,12 +302,16 @@ if (reminderType === "ONE_TIME") {
             );
         }
 
-        if (intervalMinutes < 1) {
-            throw new ApiError(
-                400,
-                "Interval must be at least 1 minute."
-            );
-        }
+        if (
+    typeof intervalMinutes !== "number" ||
+    !Number.isInteger(intervalMinutes) ||
+    intervalMinutes < 1
+) {
+    throw new ApiError(
+        400,
+        "Interval must be a positive integer."
+    );
+}
 
         if (!startTime || !endTime) {
             throw new ApiError(
@@ -242,12 +350,16 @@ if (reminderType === "ONE_TIME") {
             );
         }
 
-        if (customInterval <= 0) {
-            throw new ApiError(
-                400,
-                "Custom interval must be greater than 0."
-            );
-        }
+      if (
+    typeof finalCustomInterval !== "number" ||
+    !Number.isInteger(finalCustomInterval) ||
+    finalCustomInterval <= 0
+) {
+    throw new ApiError(
+        400,
+        "Custom interval must be a positive integer."
+    );
+}
 
         if (!customIntervalUnit) {
             throw new ApiError(
@@ -566,6 +678,20 @@ export const updateReminder = asyncHandler(async (req, res) => {
             ? scheduledAt
             : reminder.scheduledAt;
 
+const validReminderTypes = [
+    "ONE_TIME",
+    "DAILY",
+    "HOURLY",
+    "WEEKLY",
+    "CUSTOM"
+];
+
+if (!validReminderTypes.includes(finalReminderType)) {
+    throw new ApiError(
+        400,
+        "Invalid reminder type."
+    );
+}
 
     // ==========================================
     // DATE VALIDATION
@@ -745,12 +871,16 @@ if (finalReminderType === "ONE_TIME") {
             );
         }
 
-        if (finalIntervalMinutes < 1) {
-            throw new ApiError(
-                400,
-                "Interval must be at least 1 minute."
-            );
-        }
+     if (
+    typeof finalIntervalMinutes !== "number" ||
+    !Number.isInteger(finalIntervalMinutes) ||
+    finalIntervalMinutes < 1
+) {
+    throw new ApiError(
+        400,
+        "Interval must be a positive integer."
+    );
+}
 
         if (!finalStartTime || !finalEndTime) {
             throw new ApiError(
@@ -1139,7 +1269,9 @@ export const deleteReminder = asyncHandler(async (req, res) => {
     }
 
     await Reminder.deleteOne({
-        _id: id
+        _id: id,
+        user: req.user._id
+
     });
 
     return res.status(200).json(
@@ -1230,6 +1362,39 @@ export const resumeReminder = asyncHandler(async (req, res) => {
         new ApiResponse(
             200,
             "Reminder resumed successfully.",
+            reminder
+        )
+    );
+});
+
+export const toggleReminderStatus = asyncHandler(async (req, res) => {
+
+    const { id } = req.params;
+
+    const reminder = await Reminder.findOne({
+        _id: id,
+        user: req.user._id
+    });
+
+    if (!reminder) {
+        throw new ApiError(
+            404,
+            "Reminder not found"
+        );
+    }
+
+    reminder.isActive = !reminder.isActive;
+
+    await reminder.save();
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            `Reminder ${
+                reminder.isActive
+                    ? "activated"
+                    : "deactivated"
+            } successfully`,
             reminder
         )
     );
