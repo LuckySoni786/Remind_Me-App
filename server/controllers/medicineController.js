@@ -16,22 +16,98 @@ export const createMedicine = asyncHandler(async (req, res) => {
         reminderEnabled
     } = req.body;
 
-    if (!medicineName || !dosage || !type || !startDate) {
-        throw new ApiError(400, "Please fill all required fields.");
+    // Required fields
+    if (
+        !medicineName?.trim() ||
+        !dosage?.trim() ||
+        !type ||
+        !startDate
+    ) {
+        throw new ApiError(
+            400,
+            "Medicine name, dosage, type and start date are required."
+        );
+    }
+
+    // Validate medicine type
+    const validTypes = [
+        "Tablet",
+        "Capsule",
+        "Syrup",
+        "Injection",
+        "Drops",
+        "Cream",
+        "Spray",
+        "Other"
+    ];
+
+    if (!validTypes.includes(type)) {
+        throw new ApiError(400, "Invalid medicine type.");
+    }
+
+    // Validate instructions
+    const validInstructions = [
+        "Before Food",
+        "After Food",
+        "With Food",
+        "Empty Stomach",
+        "Anytime"
+    ];
+
+    if (
+        instructions !== undefined &&
+        !validInstructions.includes(instructions)
+    ) {
+        throw new ApiError(400, "Invalid medicine instructions.");
+    }
+
+    // Validate dates
+    const parsedStartDate = new Date(startDate);
+
+    if (Number.isNaN(parsedStartDate.getTime())) {
+        throw new ApiError(400, "Invalid start date.");
+    }
+
+    let parsedEndDate;
+
+    if (endDate) {
+        parsedEndDate = new Date(endDate);
+
+        if (Number.isNaN(parsedEndDate.getTime())) {
+            throw new ApiError(400, "Invalid end date.");
+        }
+
+        if (parsedEndDate < parsedStartDate) {
+            throw new ApiError(
+                400,
+                "End date cannot be before start date."
+            );
+        }
+    }
+
+    // Validate reminderEnabled
+    if (
+        reminderEnabled !== undefined &&
+        typeof reminderEnabled !== "boolean"
+    ) {
+        throw new ApiError(
+            400,
+            "reminderEnabled must be a boolean."
+        );
     }
 
     const medicine = await Medicine.create({
-        medicineName,
-        dosage,
+        medicineName: medicineName.trim(),
+        dosage: dosage.trim(),
         type,
-        instructions,
-        notes,
+        instructions: instructions ?? "Anytime",
+        notes: notes?.trim() ?? "",
         color,
-        startDate,
-        endDate,
-        reminderEnabled,
+        startDate: parsedStartDate,
+        endDate: parsedEndDate,
+        reminderEnabled: reminderEnabled ?? true,
         user: req.user._id
-    })
+    });
 
     return res.status(201).json(
         new ApiResponse(
@@ -39,40 +115,57 @@ export const createMedicine = asyncHandler(async (req, res) => {
             "Medicine created successfully",
             medicine
         )
-    )
-
+    );
 });
 
 export const getMedicine = asyncHandler(async (req, res) => {
     const medicines = await Medicine.find({
         user: req.user._id
-    }).sort({ createdAt: -1 })
+    }).sort({ createdAt: -1 });
+
     return res.status(200).json(
-        new ApiResponse(200, "Medicine get successfully", medicines)
-    )
-})
+        new ApiResponse(
+            200,
+            "Medicines fetched successfully",
+            medicines
+        )
+    );
+});
 
 export const getMedicineById = asyncHandler(async (req, res) => {
     const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        throw new ApiError(400, "Invalid medicine ID.");
+    }
+
     const medicine = await Medicine.findOne({
         _id: id,
         user: req.user._id
-    })
+    });
 
     if (!medicine) {
-
-        throw new ApiError(400, "Medicine not found")
-
+        throw new ApiError(404, "Medicine not found.");
     }
 
-    return res.status(200).json(new ApiResponse(200, "Medicine fetched successfully", medicine));
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            "Medicine fetched successfully",
+            medicine
+        )
+    );
+});
 
-})
 
 export const updateMedicine = asyncHandler(async (req, res) => {
     const { id } = req.params;
 
-       const {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        throw new ApiError(400, "Invalid medicine ID.");
+    }
+
+    const {
         medicineName,
         dosage,
         type,
@@ -88,84 +181,174 @@ export const updateMedicine = asyncHandler(async (req, res) => {
     const medicine = await Medicine.findOne({
         _id: id,
         user: req.user._id
-
     });
 
     if (!medicine) {
-        throw new ApiError(404, "Medicine not found");
-
+        throw new ApiError(404, "Medicine not found.");
     }
 
- 
-
+    // Medicine name
     if (medicineName !== undefined) {
-    medicine.medicineName = medicineName;
-}
+        if (!medicineName.trim()) {
+            throw new ApiError(400, "Medicine name cannot be empty.");
+        }
 
-if (dosage !== undefined) {
-    medicine.dosage = dosage;
-}
+        medicine.medicineName = medicineName.trim();
+    }
 
-if (type !== undefined) {
-    medicine.type = type;
-}
+    // Dosage
+    if (dosage !== undefined) {
+        if (!dosage.trim()) {
+            throw new ApiError(400, "Dosage cannot be empty.");
+        }
 
-if (instructions !== undefined) {
-    medicine.instructions = instructions;
-}
+        medicine.dosage = dosage.trim();
+    }
 
-if (notes !== undefined) {
-    medicine.notes = notes;
-}
+    // Medicine type
+    if (type !== undefined) {
+        const validTypes = [
+            "Tablet",
+            "Capsule",
+            "Syrup",
+            "Injection",
+            "Drops",
+            "Cream",
+            "Spray",
+            "Other"
+        ];
 
-if (color !== undefined) {
-    medicine.color = color;
-}
+        if (!validTypes.includes(type)) {
+            throw new ApiError(400, "Invalid medicine type.");
+        }
 
-if (startDate !== undefined) {
-    medicine.startDate = startDate;
-}
+        medicine.type = type;
+    }
 
-if (endDate !== undefined) {
-    medicine.endDate = endDate;
-}
+    // Instructions
+    if (instructions !== undefined) {
+        const validInstructions = [
+            "Before Food",
+            "After Food",
+            "With Food",
+            "Empty Stomach",
+            "Anytime"
+        ];
 
-if (reminderEnabled !== undefined) {
-    medicine.reminderEnabled = reminderEnabled;
-}
+        if (!validInstructions.includes(instructions)) {
+            throw new ApiError(400, "Invalid medicine instructions.");
+        }
 
-if (isActive !== undefined) {
-    medicine.isActive = isActive;
-}
+        medicine.instructions = instructions;
+    }
 
-await medicine.save();
+    // Notes
+    if (notes !== undefined) {
+        medicine.notes = notes.trim();
+    }
 
-return res.status(200).json(
-    new ApiResponse(
-        200,
-        "Medicine updated successfully",
-        medicine
-    )
-);
+    // Color
+    if (color !== undefined) {
+        medicine.color = color;
+    }
 
-})
+    // Start date
+    if (startDate !== undefined) {
+        const parsedStartDate = new Date(startDate);
 
-export const deleteMedicine = asyncHandler(async(req, res)=>{
-    const {id} = req.params;
+        if (Number.isNaN(parsedStartDate.getTime())) {
+            throw new ApiError(400, "Invalid start date.");
+        }
+
+        medicine.startDate = parsedStartDate;
+    }
+
+    // End date
+    if (endDate !== undefined) {
+        if (endDate === null || endDate === "") {
+            medicine.endDate = undefined;
+        } else {
+            const parsedEndDate = new Date(endDate);
+
+            if (Number.isNaN(parsedEndDate.getTime())) {
+                throw new ApiError(400, "Invalid end date.");
+            }
+
+            medicine.endDate = parsedEndDate;
+        }
+    }
+
+    // Validate date relationship using final values
+    if (medicine.endDate && medicine.startDate) {
+        if (medicine.endDate < medicine.startDate) {
+            throw new ApiError(
+                400,
+                "End date cannot be before start date."
+            );
+        }
+    }
+
+    // Reminder enabled
+    if (reminderEnabled !== undefined) {
+        if (typeof reminderEnabled !== "boolean") {
+            throw new ApiError(
+                400,
+                "reminderEnabled must be a boolean."
+            );
+        }
+
+        medicine.reminderEnabled = reminderEnabled;
+    }
+
+    // Active status
+    if (isActive !== undefined) {
+        if (typeof isActive !== "boolean") {
+            throw new ApiError(
+                400,
+                "isActive must be a boolean."
+            );
+        }
+
+        medicine.isActive = isActive;
+    }
+
+    await medicine.save();
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            "Medicine updated successfully",
+            medicine
+        )
+    );
+});
+
+export const deleteMedicine = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        throw new ApiError(400, "Invalid medicine ID.");
+    }
 
     const medicine = await Medicine.findOne({
         _id: id,
         user: req.user._id
     });
 
-if(!medicine){
-        throw new ApiError(404, "Medicine not found!!");
-        }
+    if (!medicine) {
+        throw new ApiError(404, "Medicine not found.");
+    }
 
-await Medicine.deleteOne({
-     _id: id
-})
-    
-    
-    return res.status(200).json(new ApiResponse(200, "Medicine Deleted Successfully!", null));
-})
+    await Medicine.deleteOne({
+        _id: id,
+        user: req.user._id
+    });
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            "Medicine deleted successfully.",
+            null
+        )
+    );
+});

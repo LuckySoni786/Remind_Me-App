@@ -542,38 +542,226 @@ const validateReminderData = (data) => {
 
 export const getReminders = asyncHandler(async (req, res) => {
 
-    const reminders = await Reminder.find({
+    const {
+        search,
+        category,
+        reminderType,
+        isActive,
+        notificationType,
+        startDate,
+        endDate,
+        page = 1,
+        limit = 10,
+        sortBy = "createdAt",
+        sortOrder = "desc"
+    } = req.query;
+
+
+    // ==============================
+    // PAGINATION
+    // ==============================
+
+    const pageNumber = Math.max(parseInt(page) || 1, 1);
+    const limitNumber = Math.min(
+        Math.max(parseInt(limit) || 10, 1),
+        100
+    );
+
+    const skip = (pageNumber - 1) * limitNumber;
+
+
+    // ==============================
+    // FILTER
+    // ==============================
+
+    const filter = {
         user: req.user._id
-    })
-        .populate("medicine", "medicineName dosage type")
-        .sort({ createdAt: -1 });
+    };
+
+
+    // Search by title
+    if (search) {
+        filter.title = {
+            $regex: search.trim(),
+            $options: "i"
+        };
+    }
+
+
+    // Category
+    if (category) {
+        filter.category = category;
+    }
+
+
+    // Reminder type
+    if (reminderType) {
+        filter.reminderType = reminderType;
+    }
+
+
+    // Active / inactive
+    if (isActive !== undefined) {
+
+        if (
+            isActive !== "true" &&
+            isActive !== "false"
+        ) {
+            throw new ApiError(
+                400,
+                "isActive must be true or false."
+            );
+        }
+
+        filter.isActive = isActive === "true";
+    }
+
+
+    // Notification type
+    if (notificationType) {
+        filter.notificationType = notificationType;
+    }
+
+
+    // Start date filter
+    if (startDate) {
+
+        const start = new Date(startDate);
+
+        if (isNaN(start.getTime())) {
+            throw new ApiError(
+                400,
+                "Invalid start date."
+            );
+        }
+
+        filter.startDate = {
+            $gte: start
+        };
+    }
+
+
+    // End date filter
+    if (endDate) {
+
+        const end = new Date(endDate);
+
+        if (isNaN(end.getTime())) {
+            throw new ApiError(
+                400,
+                "Invalid end date."
+            );
+        }
+
+        filter.endDate = {
+            $lte: end
+        };
+    }
+
+
+    // ==============================
+    // SORTING
+    // ==============================
+
+    const allowedSortFields = [
+        "createdAt",
+        "updatedAt",
+        "title",
+        "startDate",
+        "endDate",
+        "scheduledAt"
+    ];
+
+    if (!allowedSortFields.includes(sortBy)) {
+        throw new ApiError(
+            400,
+            "Invalid sort field."
+        );
+    }
+
+    const sort = {
+        [sortBy]: sortOrder === "asc" ? 1 : -1
+    };
+
+
+    // ==============================
+    // FETCH DATA
+    // ==============================
+
+    const [reminders, total] = await Promise.all([
+        Reminder.find(filter)
+            .populate(
+                "medicine",
+                "medicineName dosage type"
+            )
+            .sort(sort)
+            .skip(skip)
+            .limit(limitNumber),
+
+        Reminder.countDocuments(filter)
+    ]);
+
+
+    const totalPages = Math.ceil(
+        total / limitNumber
+    );
+
+
+    // ==============================
+    // RESPONSE
+    // ==============================
 
     return res.status(200).json(
         new ApiResponse(
             200,
             "Reminders fetched successfully",
-            reminders
+            {
+                reminders,
+                pagination: {
+                    page: pageNumber,
+                    limit: limitNumber,
+                    total,
+                    totalPages
+                }
+            }
         )
     );
 });
 
 export const getReminderById = asyncHandler(async (req, res) => {
+
     const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        throw new ApiError(
+            400,
+            "Invalid reminder ID."
+        );
+    }
 
     const reminder = await Reminder.findOne({
         _id: id,
         user: req.user._id
     }).populate(
         "medicine",
-        "medicine dosage type"
+        "medicineName dosage type"
     );
 
     if (!reminder) {
-        throw new ApiError(404, "Reminder Not found!!");
+        throw new ApiError(
+            404,
+            "Reminder not found."
+        );
     }
 
-    return res.status(200).json(new ApiResponse(200, "Reminder fetched successfully", reminder));
-})
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            "Reminder fetched successfully",
+            reminder
+        )
+    );
+});
 
 export const updateReminder = asyncHandler(async (req, res) => {
 

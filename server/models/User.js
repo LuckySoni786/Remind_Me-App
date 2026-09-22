@@ -63,17 +63,12 @@ const userSchema = new mongoose.Schema(
 
 
 userSchema.pre("save", async function () {
-  try {
-    // Hash only if password is modified
     if (!this.isModified("password")) {
+        return;
     }
 
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
-
-  } catch (error) {
-    return res.status(500).json({message:"something went wrong during hash password"});
-  }
 });
 
 userSchema.methods.comparePassword = async function (enteredPassword) {
