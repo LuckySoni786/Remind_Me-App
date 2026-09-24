@@ -1,9 +1,9 @@
 import User from "../models/User.js";
-import ApiResponse from "../utils/apiResponse.js";
+import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 
-import medicine from "../models/Medicine.js";
+import Medicine from "../models/Medicine.js";
 import Reminder from "../models/Reminder.js";
 import ReminderHistory from "../models/ReminderHistory.js";
 

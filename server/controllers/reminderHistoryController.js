@@ -1,7 +1,8 @@
+import mongoose from "mongoose";
 import ReminderHistory from "../models/ReminderHistory.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
-import ApiResponse from "../utils/apiResponse.js";
+import ApiResponse from "../utils/ApiResponse.js";
 import Reminder from "../models/Reminder.js";
 
 
@@ -45,8 +46,15 @@ export const getReminderHistory = asyncHandler(async (req, res) => {
     // ==========================================
 
     if (reminderId) {
-        filter.reminder = reminderId;
+    if (!mongoose.Types.ObjectId.isValid(reminderId)) {
+        throw new ApiError(
+            400,
+            "Invalid reminder ID."
+        );
     }
+
+    filter.reminder = reminderId;
+}
 
     // ==========================================
     // STATUS FILTER
@@ -57,7 +65,9 @@ export const getReminderHistory = asyncHandler(async (req, res) => {
             "TRIGGERED",
             "COMPLETED",
             "MISSED",
-            "DISMISSED"
+            "DISMISSED",
+                "SNOOZED"
+
         ];
 
         if (!validStatuses.includes(status)) {
@@ -267,7 +277,9 @@ export const updateHistoryStatus = asyncHandler(async (req, res) => {
         "TRIGGERED",
         "COMPLETED",
         "MISSED",
-        "DISMISSED"
+        "DISMISSED",
+            "SNOOZED"
+
     ];
 
     if (!status) {
@@ -872,12 +884,12 @@ const productivitySummary = {
     completionRate,
     missedRate,
 
-    activeRate:
-        totalRecords > 0
-            ? Number(
-                  ((triggered / totalRecords) * 100).toFixed(2)
-              )
-            : 0,
+   triggeredRate:
+    totalRecords > 0
+        ? Number(
+              ((triggered / totalRecords) * 100).toFixed(2)
+          )
+        : 0,
 
     dismissalRate:
         totalRecords > 0

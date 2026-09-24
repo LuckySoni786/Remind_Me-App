@@ -12,12 +12,18 @@ const app = express();
 
 // Middlewares
 
-app.use(express.json());
+app.use(express.json({ limit: "10kb" }));
+app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
 
-app.use(cors());
+app.use(
+    cors({
+        origin: process.env.CLIENT_URL,
+        credentials: true
+    })
+);
 
 app.use(helmet());
 
@@ -28,12 +34,12 @@ app.use("/api/auth", authRoutes);
 app.use("/api/medicine", medicineRoutes);
 app.use("/api/reminder", reminderRoutes);
 app.use("/api/v1/reminder-history", reminderHistoryRouter);
-app.use(errorMiddleware);
 app.get("/", (req, res) => {
     res.status(200).json({
         success: true,
         message: "Remind Me API is Running "
     });
 });
+app.use(errorMiddleware);
 
 export default app;

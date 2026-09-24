@@ -1,7 +1,7 @@
 import Medicine from "../models/Medicine.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
-import ApiResponse from "../utils/apiResponse.js";
+import ApiResponse from "../utils/ApiResponse.js";
 import Reminder from "../models/Reminder.js";
 export const createMedicine = asyncHandler(async (req, res) => {
     const {
