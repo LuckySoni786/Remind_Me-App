@@ -78,6 +78,7 @@ daysOfWeek: {
 
 customInterval: {
     type: Number,
+        min: [1, "Custom interval must be at least 1"],
     default: null
 },
 

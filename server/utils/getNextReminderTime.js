@@ -1,37 +1,68 @@
 export const getNextReminderTime = (reminder, now = new Date()) => {
 
-const current = new Date(now);
+    const current = new Date(now);
 
-// START DATE
-if (reminder.startDate) {
-    const startDate = new Date(reminder.startDate);
+    // --------------------------------
+    // HELPER: DATE ONLY
+    // --------------------------------
+    const getDateOnly = (date) => {
+        const result = new Date(date);
 
-    if (current < startDate) {
-        return startDate;
+        result.setHours(0, 0, 0, 0);
+
+        return result;
+    };
+
+
+    // --------------------------------
+    // START DATE
+    // --------------------------------
+    let startDate = null;
+
+    if (reminder.startDate) {
+        startDate = getDateOnly(reminder.startDate);
     }
-}
 
-// END DATE
-if (reminder.endDate) {
-    const endDate = new Date(reminder.endDate);
 
-    endDate.setHours(23, 59, 59, 999);
+    // --------------------------------
+    // END DATE
+    // --------------------------------
+    let endDate = null;
 
-    if (current > endDate) {
-        return null;
+    if (reminder.endDate) {
+        endDate = getDateOnly(reminder.endDate);
+
+        endDate.setHours(23, 59, 59, 999);
+
+        if (current > endDate) {
+            return null;
+        }
     }
-}
+
 
     // --------------------------------
     // ONE TIME
     // --------------------------------
     if (reminder.reminderType === "ONE_TIME") {
 
-        if (
-            reminder.scheduledAt &&
-            new Date(reminder.scheduledAt) > current
-        ) {
-            return new Date(reminder.scheduledAt);
+        if (!reminder.scheduledAt) {
+            return null;
+        }
+
+        const scheduledAt = new Date(reminder.scheduledAt);
+
+        // Before start date
+        if (startDate && getDateOnly(scheduledAt) < startDate) {
+            return null;
+        }
+
+        // After end date
+        if (endDate && scheduledAt > endDate) {
+            return null;
+        }
+
+        if (scheduledAt > current) {
+            return scheduledAt;
         }
 
         return null;
@@ -51,12 +82,28 @@ if (reminder.endDate) {
             .split(":")
             .map(Number);
 
-        const next = new Date(current);
+        let next = new Date(current);
 
         next.setHours(hours, minutes, 0, 0);
 
-        if (next <= current) {
+
+        // If today is before start date,
+        // schedule on start date
+        if (startDate && getDateOnly(current) < startDate) {
+
+            next = new Date(startDate);
+
+            next.setHours(hours, minutes, 0, 0);
+
+        } else if (next <= current) {
+
             next.setDate(next.getDate() + 1);
+        }
+
+
+        // END DATE
+        if (endDate && next > endDate) {
+            return null;
         }
 
         return next;
@@ -89,12 +136,23 @@ if (reminder.endDate) {
             "SATURDAY"
         ];
 
+        // Start searching from today
+        // or from start date
+        let searchDate = new Date(current);
+
+        if (
+            startDate &&
+            getDateOnly(current) < startDate
+        ) {
+            searchDate = new Date(startDate);
+        }
+
         for (let i = 0; i <= 7; i++) {
 
-            const next = new Date(current);
+            const next = new Date(searchDate);
 
             next.setDate(
-                current.getDate() + i
+                searchDate.getDate() + i
             );
 
             next.setHours(hours, minutes, 0, 0);
@@ -102,11 +160,21 @@ if (reminder.endDate) {
             const dayName = days[next.getDay()];
 
             if (
-                reminder.daysOfWeek.includes(dayName) &&
-                next > current
+                !reminder.daysOfWeek.includes(dayName)
             ) {
-                return next;
+                continue;
             }
+
+            if (next <= current) {
+                continue;
+            }
+
+            // END DATE
+            if (endDate && next > endDate) {
+                return null;
+            }
+
+            return next;
         }
 
         return null;
@@ -127,6 +195,10 @@ if (reminder.endDate) {
 
         let next;
 
+
+        // --------------------------------
+        // LAST TRIGGERED EXISTS
+        // --------------------------------
         if (reminder.lastTriggeredAt) {
 
             next = new Date(
@@ -134,36 +206,81 @@ if (reminder.endDate) {
                 interval
             );
 
-        } else if (reminder.startTime) {
+        }
+
+        // --------------------------------
+        // NO LAST TRIGGERED
+        // USE START TIME AS ANCHOR
+        // --------------------------------
+        else if (reminder.startTime) {
 
             const [hours, minutes] =
                 reminder.startTime
                     .split(":")
                     .map(Number);
 
-            next = new Date(current);
+            // If today is before start date,
+            // use start date as anchor
+            if (
+                startDate &&
+                getDateOnly(current) < startDate
+            ) {
 
-            next.setHours(
-                hours,
-                minutes,
-                0,
-                0
-            );
+                next = new Date(startDate);
 
-            if (next <= current) {
-                next = new Date(
-                    current.getTime() + interval
+                next.setHours(
+                    hours,
+                    minutes,
+                    0,
+                    0
                 );
-            }
 
-        } else {
+            } else {
+
+                next = new Date(current);
+
+                next.setHours(
+                    hours,
+                    minutes,
+                    0,
+                    0
+                );
+
+                // If start time has already passed,
+                // calculate next interval from start time
+                if (next <= current) {
+
+                    const elapsed =
+                        current.getTime() -
+                        next.getTime();
+
+                    const intervalsPassed =
+                        Math.floor(
+                            elapsed / interval
+                        ) + 1;
+
+                    next = new Date(
+                        next.getTime() +
+                        intervalsPassed * interval
+                    );
+                }
+            }
+        }
+
+        // --------------------------------
+        // NO START TIME
+        // --------------------------------
+        else {
 
             next = new Date(
                 current.getTime() + interval
             );
         }
 
-        // END TIME CHECK
+
+        // --------------------------------
+        // END TIME
+        // --------------------------------
         if (reminder.endTime) {
 
             const [endHours, endMinutes] =
@@ -183,6 +300,14 @@ if (reminder.endDate) {
             if (next > end) {
                 return null;
             }
+        }
+
+
+        // --------------------------------
+        // END DATE
+        // --------------------------------
+        if (endDate && next > endDate) {
+            return null;
         }
 
         return next;
@@ -233,29 +358,142 @@ if (reminder.endDate) {
                 return null;
         }
 
+
+        let next;
+
+
+        // --------------------------------
+        // LAST TRIGGERED EXISTS
+        // --------------------------------
         if (reminder.lastTriggeredAt) {
 
-            return new Date(
+            next = new Date(
                 new Date(reminder.lastTriggeredAt).getTime() +
                 intervalMilliseconds
             );
-
         }
 
-        if (reminder.startDate) {
 
-            const startDate =
-                new Date(reminder.startDate);
+        // --------------------------------
+        // FIRST TRIGGER
+        // START DATE + START TIME
+        // --------------------------------
+        else {
 
-            if (startDate > current) {
-                return startDate;
+            let anchor = null;
+
+            if (reminder.startDate) {
+
+                anchor = new Date(
+                    reminder.startDate
+                );
+
+                // Use startTime if available
+                if (reminder.startTime) {
+
+                    const [hours, minutes] =
+                        reminder.startTime
+                            .split(":")
+                            .map(Number);
+
+                    anchor.setHours(
+                        hours,
+                        minutes,
+                        0,
+                        0
+                    );
+
+                } else {
+
+                    anchor.setHours(
+                        0,
+                        0,
+                        0,
+                        0
+                    );
+                }
+            }
+
+            // If anchor exists
+            if (anchor) {
+
+                if (anchor > current) {
+
+                    next = anchor;
+
+                } else {
+
+                    next = new Date(
+                        anchor.getTime() +
+                        intervalMilliseconds
+                    );
+
+                    // If calculated next time
+                    // is still in the past,
+                    // move forward by intervals
+                    if (next <= current) {
+
+                        const elapsed =
+                            current.getTime() -
+                            anchor.getTime();
+
+                        const intervalsPassed =
+                            Math.floor(
+                                elapsed /
+                                intervalMilliseconds
+                            ) + 1;
+
+                        next = new Date(
+                            anchor.getTime() +
+                            intervalsPassed *
+                            intervalMilliseconds
+                        );
+                    }
+                }
+
+            } else {
+
+                next = new Date(
+                    current.getTime() +
+                    intervalMilliseconds
+                );
             }
         }
 
-        return new Date(
-            current.getTime() +
-            intervalMilliseconds
-        );
+
+        // --------------------------------
+        // END TIME
+        // --------------------------------
+        if (reminder.endTime) {
+
+            const [endHours, endMinutes] =
+                reminder.endTime
+                    .split(":")
+                    .map(Number);
+
+            const end = new Date(next);
+
+            end.setHours(
+                endHours,
+                endMinutes,
+                0,
+                0
+            );
+
+            if (next > end) {
+                return null;
+            }
+        }
+
+
+        // --------------------------------
+        // END DATE
+        // --------------------------------
+        if (endDate && next > endDate) {
+            return null;
+        }
+
+        return next;
     }
 
 

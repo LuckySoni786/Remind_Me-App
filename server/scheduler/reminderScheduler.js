@@ -57,7 +57,7 @@ const triggerReminder = async (reminder, io, now) => {
     ) {
         try {
 
-            io.emit("reminder-due", {
+            io.to(`user:${reminder.user}`).emit("reminder-due", {
                 reminderId: reminder._id,
                 historyId: history._id,
                 title: reminder.title,
@@ -201,7 +201,7 @@ const triggerSnoozedReminder = async (
     ) {
         try {
 
-            io.emit("reminder-due", {
+            io.to(`user:${reminder.user}`).emit("reminder-due", {
                 reminderId: reminder._id,
                 historyId: history._id,
                 title: reminder.title,
@@ -453,61 +453,66 @@ if (snoozedHistory) {
                     }
                 }
 
-                // HOURLY REMINDER
-                if (reminder.reminderType === "HOURLY") {
+              // HOURLY REMINDER
+if (reminder.reminderType === "HOURLY") {
 
-                    const now = new Date();
+    const now = new Date();
 
-                    const currentHours = String(now.getHours()).padStart(2, "0");
-                    const currentMinutes = String(now.getMinutes()).padStart(2, "0");
+    const currentHours = String(now.getHours()).padStart(2, "0");
+    const currentMinutes = String(now.getMinutes()).padStart(2, "0");
 
-                    const currentTime = `${currentHours}:${currentMinutes}`;
+    const currentTime = `${currentHours}:${currentMinutes}`;
 
-                    // Check start and end time
-                    if (
-                        reminder.startTime &&
-                        currentTime < reminder.startTime
-                    ) {
-                        continue;
-                    }
+    // Check start time
+    if (
+        reminder.startTime &&
+        currentTime < reminder.startTime
+    ) {
+        continue;
+    }
 
-                    if (
-                        reminder.endTime &&
-                        currentTime > reminder.endTime
-                    ) {
-                        continue;
-                    }
+    // Check end time
+    if (
+        reminder.endTime &&
+        currentTime > reminder.endTime
+    ) {
+        continue;
+    }
 
-                    if (!reminder.lastTriggeredAt) {
+    // First trigger
+    if (!reminder.lastTriggeredAt) {
 
-                        console.log(
-                            `Hourly reminder is due: ${reminder.title}`
-                        );
+        if (
+            reminder.startTime &&
+            currentTime === reminder.startTime
+        ) {
+            console.log(
+                `Hourly reminder is due: ${reminder.title}`
+            );
 
-                        await triggerReminder(reminder, io, now);
+            await triggerReminder(reminder, io, now);
+        }
 
+    } else {
 
-                    } else {
+        const lastTriggeredTime =
+            reminder.lastTriggeredAt.getTime();
 
-                        const lastTriggeredTime =
-                            reminder.lastTriggeredAt.getTime();
+        const interval =
+            reminder.intervalMinutes * 60 * 1000;
 
-                        const interval =
-                            reminder.intervalMinutes * 60 * 1000;
+        if (
+            now.getTime() - lastTriggeredTime >= interval
+        ) {
 
-                        if (
-                            now.getTime() - lastTriggeredTime >= interval
-                        ) {
+            console.log(
+                `Hourly reminder is due: ${reminder.title}`
+            );
 
-                            console.log(
-                                `Hourly reminder is due: ${reminder.title}`
-                            );
-
-                            await triggerReminder(reminder, io, now);
-
-                        }
-                    }
-                }
+            await triggerReminder(reminder, io, now);
+        }
+    }
+}
 
                 // WEEKLY REMINDER
                 if (reminder.reminderType === "WEEKLY") {
@@ -560,56 +565,81 @@ if (snoozedHistory) {
                     await triggerReminder(reminder, io, now);
                 }
 
-                // CUSTOM REMINDER
-                if (reminder.reminderType === "CUSTOM") {
+               // CUSTOM REMINDER
+if (reminder.reminderType === "CUSTOM") {
 
-                    const now = new Date();
+    const now = new Date();
 
-                    if (!reminder.lastTriggeredAt) {
+    const currentHours = String(now.getHours()).padStart(2, "0");
+    const currentMinutes = String(now.getMinutes()).padStart(2, "0");
 
-                        console.log(
-                            `Custom reminder is due: ${reminder.title}`
-                        );
+    const currentTime = `${currentHours}:${currentMinutes}`;
 
-                        await triggerReminder(reminder, io, now);
+    // Check start time
+    if (
+        reminder.startTime &&
+        currentTime < reminder.startTime
+    ) {
+        continue;
+    }
 
-                    } else {
+    // Check end time
+    if (
+        reminder.endTime &&
+        currentTime > reminder.endTime
+    ) {
+        continue;
+    }
 
-                        const lastTriggeredTime =
-                            reminder.lastTriggeredAt.getTime();
+    let intervalMilliseconds = 0;
 
-                        let intervalMilliseconds = 0;
+    if (reminder.customIntervalUnit === "MINUTES") {
 
-                        if (reminder.customIntervalUnit === "MINUTES") {
+        intervalMilliseconds =
+            reminder.customInterval * 60 * 1000;
 
-                            intervalMilliseconds =
-                                reminder.customInterval * 60 * 1000;
+    } else if (reminder.customIntervalUnit === "HOURS") {
 
-                        } else if (reminder.customIntervalUnit === "HOURS") {
+        intervalMilliseconds =
+            reminder.customInterval * 60 * 60 * 1000;
 
-                            intervalMilliseconds =
-                                reminder.customInterval * 60 * 60 * 1000;
+    } else if (reminder.customIntervalUnit === "DAYS") {
 
-                        } else if (reminder.customIntervalUnit === "DAYS") {
+        intervalMilliseconds =
+            reminder.customInterval * 24 * 60 * 60 * 1000;
+    }
 
-                            intervalMilliseconds =
-                                reminder.customInterval * 24 * 60 * 60 * 1000;
-                        }
+    if (
+        !reminder.lastTriggeredAt &&
+        reminder.startTime &&
+        currentTime === reminder.startTime
+    ) {
 
-                        if (
-                            intervalMilliseconds > 0 &&
-                            now.getTime() - lastTriggeredTime >=
-                            intervalMilliseconds
-                        ) {
+        console.log(
+            `Custom reminder is due: ${reminder.title}`
+        );
 
-                            console.log(
-                                `Custom reminder is due: ${reminder.title}`
-                            );
+        await triggerReminder(reminder, io, now);
 
-                            await triggerReminder(reminder, io, now);
-                        }
-                    }
-                }
+    } else if (reminder.lastTriggeredAt) {
+
+        const lastTriggeredTime =
+            reminder.lastTriggeredAt.getTime();
+
+        if (
+            intervalMilliseconds > 0 &&
+            now.getTime() - lastTriggeredTime >=
+            intervalMilliseconds
+        ) {
+
+            console.log(
+                `Custom reminder is due: ${reminder.title}`
+            );
+
+            await triggerReminder(reminder, io, now);
+        }
+    }
+}
 
             }
 
