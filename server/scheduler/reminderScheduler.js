@@ -12,6 +12,9 @@ const triggerReminder = async (reminder, io, now) => {
     const user = await User.findById(reminder.user)
         .select("email firstName notificationPreferences");
 
+        console.log("Reminder user ID:", reminder.user);
+console.log("Found user:", user);
+
     if (!user) {
         console.log(
             `User not found for reminder: ${reminder.title}`

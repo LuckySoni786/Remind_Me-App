@@ -46,15 +46,15 @@ export const getReminderHistory = asyncHandler(async (req, res) => {
     // ==========================================
 
     if (reminderId) {
-    if (!mongoose.Types.ObjectId.isValid(reminderId)) {
-        throw new ApiError(
-            400,
-            "Invalid reminder ID."
-        );
-    }
+        if (!mongoose.Types.ObjectId.isValid(reminderId)) {
+            throw new ApiError(
+                400,
+                "Invalid reminder ID."
+            );
+        }
 
-    filter.reminder = reminderId;
-}
+        filter.reminder = reminderId;
+    }
 
     // ==========================================
     // STATUS FILTER
@@ -66,7 +66,7 @@ export const getReminderHistory = asyncHandler(async (req, res) => {
             "COMPLETED",
             "MISSED",
             "DISMISSED",
-                "SNOOZED"
+            "SNOOZED"
 
         ];
 
@@ -179,7 +179,7 @@ export const getReminderHistory = asyncHandler(async (req, res) => {
             filter.triggeredAt.$gte &&
             filter.triggeredAt.$lte &&
             filter.triggeredAt.$gte >
-                filter.triggeredAt.$lte
+            filter.triggeredAt.$lte
         ) {
             throw new ApiError(
                 400,
@@ -278,7 +278,7 @@ export const updateHistoryStatus = asyncHandler(async (req, res) => {
         "COMPLETED",
         "MISSED",
         "DISMISSED",
-            "SNOOZED"
+        "SNOOZED"
 
     ];
 
@@ -406,6 +406,12 @@ export const getReminderStatistics = asyncHandler(async (req, res) => {
             status: "DISMISSED"
         });
 
+    const snoozed =
+        await ReminderHistory.countDocuments({
+            ...filter,
+            status: "SNOOZED"
+        });
+
     // ==========================================
     // COMPLETION RATE
     // ==========================================
@@ -413,8 +419,8 @@ export const getReminderStatistics = asyncHandler(async (req, res) => {
     const completionRate =
         totalRecords > 0
             ? Number(
-                  ((completed / totalRecords) * 100).toFixed(2)
-              )
+                ((completed / totalRecords) * 100).toFixed(2)
+            )
             : 0;
 
     // ==========================================
@@ -424,8 +430,8 @@ export const getReminderStatistics = asyncHandler(async (req, res) => {
     const missedRate =
         totalRecords > 0
             ? Number(
-                  ((missed / totalRecords) * 100).toFixed(2)
-              )
+                ((missed / totalRecords) * 100).toFixed(2)
+            )
             : 0;
 
     // ==========================================
@@ -503,6 +509,20 @@ export const getReminderStatistics = asyncHandler(async (req, res) => {
                                 0
                             ]
                         }
+                    },
+                    snoozed: {
+                        $sum: {
+                            $cond: [
+                                {
+                                    $eq: [
+                                        "$status",
+                                        "SNOOZED"
+                                    ]
+                                },
+                                1,
+                                0
+                            ]
+                        }
                     }
                 }
             },
@@ -514,7 +534,7 @@ export const getReminderStatistics = asyncHandler(async (req, res) => {
                     triggered: 1,
                     completed: 1,
                     missed: 1,
-                    dismissed: 1
+                    dismissed: 1, snoozed: 1
                 }
             },
             {
@@ -599,6 +619,20 @@ export const getReminderStatistics = asyncHandler(async (req, res) => {
                                 0
                             ]
                         }
+                    },
+                    snoozed: {
+                        $sum: {
+                            $cond: [
+                                {
+                                    $eq: [
+                                        "$status",
+                                        "SNOOZED"
+                                    ]
+                                },
+                                1,
+                                0
+                            ]
+                        }
                     }
                 }
             },
@@ -610,7 +644,7 @@ export const getReminderStatistics = asyncHandler(async (req, res) => {
                     triggered: 1,
                     completed: 1,
                     missed: 1,
-                    dismissed: 1
+                    dismissed: 1, snoozed: 1
                 }
             },
             {
@@ -625,279 +659,321 @@ export const getReminderStatistics = asyncHandler(async (req, res) => {
     // ==========================================
 
     const dailyTrend = await ReminderHistory.aggregate([
-    {
-        $match: filter
-    },
-    {
-        $group: {
-            _id: {
-                $dateToString: {
-                    format: "%Y-%m-%d",
-                    date: "$triggeredAt"
-                }
-            },
-
-            total: {
-                $sum: 1
-            },
-
-            triggered: {
-                $sum: {
-                    $cond: [
-                        {
-                            $eq: ["$status", "TRIGGERED"]
-                        },
-                        1,
-                        0
-                    ]
-                }
-            },
-
-            completed: {
-                $sum: {
-                    $cond: [
-                        {
-                            $eq: ["$status", "COMPLETED"]
-                        },
-                        1,
-                        0
-                    ]
-                }
-            },
-
-            missed: {
-                $sum: {
-                    $cond: [
-                        {
-                            $eq: ["$status", "MISSED"]
-                        },
-                        1,
-                        0
-                    ]
-                }
-            },
-
-            dismissed: {
-                $sum: {
-                    $cond: [
-                        {
-                            $eq: ["$status", "DISMISSED"]
-                        },
-                        1,
-                        0
-                    ]
-                }
-            }
-        }
-    },
-    {
-        $project: {
-            _id: 0,
-            date: "$_id",
-            total: 1,
-            triggered: 1,
-            completed: 1,
-            missed: 1,
-            dismissed: 1
-        }
-    },
-    {
-        $sort: {
-            date: 1
-        }
-    }
-]);
-
-// ==========================================
-// WEEKLY TREND
-// ==========================================
-
-const weeklyTrend = await ReminderHistory.aggregate([
-    {
-        $match: filter
-    },
-    {
-        $group: {
-            _id: {
-                year: {
-                    $isoWeekYear: "$triggeredAt"
+        {
+            $match: filter
+        },
+        {
+            $group: {
+                _id: {
+                    $dateToString: {
+                        format: "%Y-%m-%d",
+                        date: "$triggeredAt"
+                    }
                 },
-                week: {
-                    $isoWeek: "$triggeredAt"
-                }
-            },
 
-            total: {
-                $sum: 1
-            },
-
-            triggered: {
-                $sum: {
-                    $cond: [
-                        { $eq: ["$status", "TRIGGERED"] },
-                        1,
-                        0
-                    ]
-                }
-            },
-
-            completed: {
-                $sum: {
-                    $cond: [
-                        { $eq: ["$status", "COMPLETED"] },
-                        1,
-                        0
-                    ]
-                }
-            },
-
-            missed: {
-                $sum: {
-                    $cond: [
-                        { $eq: ["$status", "MISSED"] },
-                        1,
-                        0
-                    ]
-                }
-            },
-
-            dismissed: {
-                $sum: {
-                    $cond: [
-                        { $eq: ["$status", "DISMISSED"] },
-                        1,
-                        0
-                    ]
-                }
-            }
-        }
-    },
-    {
-        $project: {
-            _id: 0,
-            year: "$_id.year",
-            week: "$_id.week",
-            total: 1,
-            triggered: 1,
-            completed: 1,
-            missed: 1,
-            dismissed: 1
-        }
-    },
-    {
-        $sort: {
-            year: 1,
-            week: 1
-        }
-    }
-]);
-
-// ==========================================
-// MONTHLY TREND
-// ==========================================
-
-const monthlyTrend = await ReminderHistory.aggregate([
-    {
-        $match: filter
-    },
-    {
-        $group: {
-            _id: {
-                year: {
-                    $year: "$triggeredAt"
+                total: {
+                    $sum: 1
                 },
-                month: {
-                    $month: "$triggeredAt"
-                }
-            },
 
-            total: {
-                $sum: 1
-            },
+                triggered: {
+                    $sum: {
+                        $cond: [
+                            {
+                                $eq: ["$status", "TRIGGERED"]
+                            },
+                            1,
+                            0
+                        ]
+                    }
+                },
 
-            triggered: {
-                $sum: {
-                    $cond: [
-                        { $eq: ["$status", "TRIGGERED"] },
-                        1,
-                        0
-                    ]
-                }
-            },
+                completed: {
+                    $sum: {
+                        $cond: [
+                            {
+                                $eq: ["$status", "COMPLETED"]
+                            },
+                            1,
+                            0
+                        ]
+                    }
+                },
 
-            completed: {
-                $sum: {
-                    $cond: [
-                        { $eq: ["$status", "COMPLETED"] },
-                        1,
-                        0
-                    ]
-                }
-            },
+                missed: {
+                    $sum: {
+                        $cond: [
+                            {
+                                $eq: ["$status", "MISSED"]
+                            },
+                            1,
+                            0
+                        ]
+                    }
+                },
 
-            missed: {
-                $sum: {
-                    $cond: [
-                        { $eq: ["$status", "MISSED"] },
-                        1,
-                        0
-                    ]
-                }
-            },
-
-            dismissed: {
-                $sum: {
-                    $cond: [
-                        { $eq: ["$status", "DISMISSED"] },
-                        1,
-                        0
-                    ]
+                dismissed: {
+                    $sum: {
+                        $cond: [
+                            {
+                                $eq: ["$status", "DISMISSED"]
+                            },
+                            1,
+                            0
+                        ]
+                    }
+                },
+                snoozed: {
+                    $sum: {
+                        $cond: [
+                            {
+                                $eq: [
+                                    "$status",
+                                    "SNOOZED"
+                                ]
+                            },
+                            1,
+                            0
+                        ]
+                    }
                 }
             }
+        },
+        {
+            $project: {
+                _id: 0,
+                date: "$_id",
+                total: 1,
+                triggered: 1,
+                completed: 1,
+                missed: 1,
+                dismissed: 1, snoozed: 1
+            }
+        },
+        {
+            $sort: {
+                date: 1
+            }
         }
-    },
-    {
-        $project: {
-            _id: 0,
-            year: "$_id.year",
-            month: "$_id.month",
-            total: 1,
-            triggered: 1,
-            completed: 1,
-            missed: 1,
-            dismissed: 1
+    ]);
+
+    // ==========================================
+    // WEEKLY TREND
+    // ==========================================
+
+    const weeklyTrend = await ReminderHistory.aggregate([
+        {
+            $match: filter
+        },
+        {
+            $group: {
+                _id: {
+                    year: {
+                        $isoWeekYear: "$triggeredAt"
+                    },
+                    week: {
+                        $isoWeek: "$triggeredAt"
+                    }
+                },
+
+                total: {
+                    $sum: 1
+                },
+
+                triggered: {
+                    $sum: {
+                        $cond: [
+                            { $eq: ["$status", "TRIGGERED"] },
+                            1,
+                            0
+                        ]
+                    }
+                },
+
+                completed: {
+                    $sum: {
+                        $cond: [
+                            { $eq: ["$status", "COMPLETED"] },
+                            1,
+                            0
+                        ]
+                    }
+                },
+
+                missed: {
+                    $sum: {
+                        $cond: [
+                            { $eq: ["$status", "MISSED"] },
+                            1,
+                            0
+                        ]
+                    }
+                },
+
+                dismissed: {
+                    $sum: {
+                        $cond: [
+                            { $eq: ["$status", "DISMISSED"] },
+                            1,
+                            0
+                        ]
+                    }
+                },
+                snoozed: {
+                    $sum: {
+                        $cond: [
+                            {
+                                $eq: [
+                                    "$status",
+                                    "SNOOZED"
+                                ]
+                            },
+                            1,
+                            0
+                        ]
+                    }
+                }
+            }
+        },
+        {
+            $project: {
+                _id: 0,
+                year: "$_id.year",
+                week: "$_id.week",
+                total: 1,
+                triggered: 1,
+                completed: 1,
+                missed: 1,
+                dismissed: 1, snoozed: 1
+            }
+        },
+        {
+            $sort: {
+                year: 1,
+                week: 1
+            }
         }
-    },
-    {
-        $sort: {
-            year: 1,
-            month: 1
+    ]);
+
+    // ==========================================
+    // MONTHLY TREND
+    // ==========================================
+
+    const monthlyTrend = await ReminderHistory.aggregate([
+        {
+            $match: filter
+        },
+        {
+            $group: {
+                _id: {
+                    year: {
+                        $year: "$triggeredAt"
+                    },
+                    month: {
+                        $month: "$triggeredAt"
+                    }
+                },
+
+                total: {
+                    $sum: 1
+                },
+
+                triggered: {
+                    $sum: {
+                        $cond: [
+                            { $eq: ["$status", "TRIGGERED"] },
+                            1,
+                            0
+                        ]
+                    }
+                },
+
+                completed: {
+                    $sum: {
+                        $cond: [
+                            { $eq: ["$status", "COMPLETED"] },
+                            1,
+                            0
+                        ]
+                    }
+                },
+
+                missed: {
+                    $sum: {
+                        $cond: [
+                            { $eq: ["$status", "MISSED"] },
+                            1,
+                            0
+                        ]
+                    }
+                },
+
+                dismissed: {
+                    $sum: {
+                        $cond: [
+                            { $eq: ["$status", "DISMISSED"] },
+                            1,
+                            0
+                        ]
+                    }
+                },
+                snoozed: {
+                    $sum: {
+                        $cond: [
+                            {
+                                $eq: [
+                                    "$status",
+                                    "SNOOZED"
+                                ]
+                            },
+                            1,
+                            0
+                        ]
+                    }
+                }
+            }
+        },
+        {
+            $project: {
+                _id: 0,
+                year: "$_id.year",
+                month: "$_id.month",
+                total: 1,
+                triggered: 1,
+                completed: 1,
+                missed: 1,
+                dismissed: 1, snoozed: 1
+            }
+        },
+        {
+            $sort: {
+                year: 1,
+                month: 1
+            }
         }
-    }
-]);
+    ]);
 
-// ==========================================
-// PRODUCTIVITY SUMMARY
-// ==========================================
+    // ==========================================
+    // PRODUCTIVITY SUMMARY
+    // ==========================================
 
-const productivitySummary = {
-    completionRate,
-    missedRate,
+    const productivitySummary = {
+        completionRate,
+        missedRate,
 
-   triggeredRate:
-    totalRecords > 0
-        ? Number(
-              ((triggered / totalRecords) * 100).toFixed(2)
-          )
-        : 0,
+        triggeredRate:
+            totalRecords > 0
+                ? Number(
+                    ((triggered / totalRecords) * 100).toFixed(2)
+                )
+                : 0,
 
-    dismissalRate:
-        totalRecords > 0
-            ? Number(
-                  ((dismissed / totalRecords) * 100).toFixed(2)
-              )
-            : 0
-};
+        dismissalRate:
+            totalRecords > 0
+                ? Number(
+                    ((dismissed / totalRecords) * 100).toFixed(2)
+                )
+                : 0
+    };
 
     return res.status(200).json(
         new ApiResponse(
@@ -915,9 +991,9 @@ const productivitySummary = {
                 reminderTypeStatistics,
                 dailyTrend,
                 weeklyTrend,
-            monthlyTrend,
+                monthlyTrend,
 
-            productivitySummary
+                productivitySummary
             }
         )
     );
@@ -970,21 +1046,21 @@ export const snoozeReminderHistory = asyncHandler(
         );
 
         const reminder = await Reminder.findOne({
-    _id: history.reminder,
-    user: req.user._id
-});
+            _id: history.reminder,
+            user: req.user._id
+        });
 
-if (!reminder) {
-    throw new ApiError(404, "Reminder not found.");
-}
+        if (!reminder) {
+            throw new ApiError(404, "Reminder not found.");
+        }
 
         history.status = "SNOOZED";
         history.snoozedUntil = snoozedUntil;
 
         if (reminder.reminderType === "ONE_TIME") {
-    reminder.isActive = true;
-    await reminder.save();
-}
+            reminder.isActive = true;
+            await reminder.save();
+        }
 
         await history.save();
 

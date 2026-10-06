@@ -774,6 +774,27 @@ export const updateReminder = asyncHandler(async (req, res) => {
     // ==========================================
 
 
+if (finalStartDate && finalEndDate) {
+    const start = new Date(finalStartDate);
+    const end = new Date(finalEndDate);
+
+    if (
+        isNaN(start.getTime()) ||
+        isNaN(end.getTime())
+    ) {
+        throw new ApiError(
+            400,
+            "Invalid start date or end date."
+        );
+    }
+
+    if (start > end) {
+        throw new ApiError(
+            400,
+            "Start date cannot be after end date."
+        );
+    }
+}
 
     // ==========================================
     // ONE TIME VALIDATION
@@ -789,6 +810,13 @@ export const updateReminder = asyncHandler(async (req, res) => {
         }
 
         const scheduled = new Date(finalScheduledAt);
+
+        if (scheduled <= new Date()) {
+    throw new ApiError(
+        400,
+        "Scheduled date and time must be in the future."
+    );
+}
 
         if (isNaN(scheduled.getTime())) {
             throw new ApiError(
@@ -1163,9 +1191,16 @@ if (!validCategories.includes(finalCategory)) {
         reminder.endDate = endDate;
     }
 
-    if (isActive !== undefined) {
-        reminder.isActive = isActive;
+   if (isActive !== undefined) {
+    if (typeof isActive !== "boolean") {
+        throw new ApiError(
+            400,
+            "isActive must be a boolean."
+        );
     }
+
+    reminder.isActive = isActive;
+}
 
     const validNotificationTypes = [
         "BROWSER",
@@ -1375,7 +1410,12 @@ export const deleteReminder = asyncHandler(async (req, res) => {
 export const pauseReminder = asyncHandler(async (req, res) => {
 
     const { id } = req.params;
-
+if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(
+        400,
+        "Invalid reminder ID."
+    );
+}
     const reminder = await Reminder.findOne({
         _id: id,
         user: req.user._id
@@ -1412,7 +1452,12 @@ export const pauseReminder = asyncHandler(async (req, res) => {
 export const resumeReminder = asyncHandler(async (req, res) => {
 
     const { id } = req.params;
-
+if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(
+        400,
+        "Invalid reminder ID."
+    );
+}
     const reminder = await Reminder.findOne({
         _id: id,
         user: req.user._id
@@ -1459,7 +1504,12 @@ export const resumeReminder = asyncHandler(async (req, res) => {
 export const toggleReminderStatus = asyncHandler(async (req, res) => {
 
     const { id } = req.params;
-
+if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(
+        400,
+        "Invalid reminder ID."
+    );
+}
     const reminder = await Reminder.findOne({
         _id: id,
         user: req.user._id
