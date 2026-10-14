@@ -32,6 +32,8 @@ export const checkReminderConflict = async ({
     time,
     daysOfWeek,
     intervalMinutes,
+      startTime,
+    endTime,
     customInterval,
     customIntervalUnit,
     excludeReminderId = null
@@ -113,15 +115,26 @@ export const checkReminderConflict = async ({
         // HOURLY
         // ==========================================
 
+       
+        // ==========================================
+        // HOURLY
+        // ==========================================
+
         if (
             reminderType === "HOURLY" &&
             reminder.reminderType === "HOURLY"
         ) {
-            if (
-                intervalMinutes &&
-                reminder.intervalMinutes &&
-                intervalMinutes === reminder.intervalMinutes
-            ) {
+            const sameInterval =
+                Number(intervalMinutes) ===
+                Number(reminder.intervalMinutes);
+
+            const sameStartTime =
+                startTime === reminder.startTime;
+
+            const sameEndTime =
+                endTime === reminder.endTime;
+
+            if (sameInterval && sameStartTime && sameEndTime) {
                 return reminder;
             }
         }

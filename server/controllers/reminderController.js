@@ -319,21 +319,26 @@ export const createReminder = asyncHandler(async (req, res) => {
         if (
             !timeRegex.test(startTime) ||
             !timeRegex.test(endTime)
-        ) {
-            throw new ApiError(
-                400,
-                "Start time and end time must be in HH:mm format."
-            );
-        }
-
-        if (startTime >= endTime) {
-            throw new ApiError(
-                400,
-                "Start time must be before end time."
-            );
-        }
+       ) {
+        throw new ApiError(
+            400,
+            "Start time and end time must be in HH:mm format."
+        );
     }
 
+    const [startHours, startMinutes] = startTime.split(":").map(Number);
+    const [endHours, endMinutes] = endTime.split(":").map(Number);
+
+    const startTotalMinutes = startHours * 60 + startMinutes;
+    const endTotalMinutes = endHours * 60 + endMinutes;
+
+    if (startTotalMinutes >= endTotalMinutes) {
+        throw new ApiError(
+            400,
+            "Start time must be before end time."
+        );
+    }
+}
     if (reminderType === "CUSTOM") {
 
         if (
@@ -385,8 +390,11 @@ export const createReminder = asyncHandler(async (req, res) => {
         time,
         daysOfWeek,
         intervalMinutes,
+         startTime,
+        endTime,
         customInterval,
-        customIntervalUnit
+        customIntervalUnit,
+       
     });
 
     if (conflict) {
