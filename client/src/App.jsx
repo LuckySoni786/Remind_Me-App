@@ -1,22 +1,34 @@
 
-import './App.css'
-import ReminderListener from './components/ReminderListener.js';
-import playReminderSound from "./utils/reminderSound";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+
+import "./App.css";
+import Login from "./pages/Login.jsx";
+import Register from "./pages/Register.jsx";
+import Dashboard from "./pages/Dashboard.jsx";
+import ProtectedRoute from "./routes/ProtectedRoute.jsx";
 
 function App() {
-const testSound = () => {
-    playReminderSound();
-};
   return (
-    <>
-    <button onClick={testSound}>
-    Test Reminder Sound
-</button>
-     <h1 className='text-4xl'>Hello </h1>
-                 <ReminderListener />
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-    </>
-  )
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+
+        <Route element={<ProtectedRoute />}>
+          <Route path="/dashboard" element={<Dashboard />} />
+        </Route>
+
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    </BrowserRouter>
+  );
 }
 
-export default App
+export default App;
