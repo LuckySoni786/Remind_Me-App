@@ -34,6 +34,8 @@ const startServer = async () => {
                 `User connected: ${socket.user._id} | Socket: ${socket.id}`
             );
 
+            socket.join(`user:${socket.user._id}`);
+
             socket.on("disconnect", (reason) => {
                 console.log(
                     `User disconnected: ${socket.user._id} | Reason: ${reason}`

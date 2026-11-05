@@ -17,7 +17,7 @@ export const AuthProvider = ({ children }) => {
     const loadUser = async () => {
       try {
         const response = await getCurrentUser();
-        setUser(response.data?.user ?? response.user ?? null);
+setUser(response.data ?? response.user ?? null);
       } catch {
         setUser(null);
       } finally {
@@ -36,13 +36,15 @@ export const AuthProvider = ({ children }) => {
     const response = await loginUser(credentials);
     const currentUser = await getCurrentUser();
 
-    setUser(
-      currentUser.data?.user ??
-      currentUser.user ??
-      response.data?.user ??
-      response.user ??
-      null
-    );
+   setUser(
+  currentUser.data?.user ??
+  currentUser.data ??
+  currentUser.user ??
+  response.data?.user ??
+  response.data ??
+  response.user ??
+  null
+);
 
     return response;
   };
