@@ -1114,6 +1114,8 @@ if (!validCategories.includes(finalCategory)) {
         reminderType: finalReminderType,
         scheduledAt: finalScheduledAt,
         time: finalTime,
+        startTime: finalStartTime,
+        endTime: finalEndTime,
         daysOfWeek: finalDaysOfWeek,
         intervalMinutes: finalIntervalMinutes,
         customInterval: finalCustomInterval,

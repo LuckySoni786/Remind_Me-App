@@ -1,140 +1,160 @@
+
 import mongoose from "mongoose";
 
 const reminderSchema = new mongoose.Schema(
     {
-
         title: {
-    type: String,
-    required: [true, "Reminder title is required"],
-    trim: true,
-},
-category: {
-    type: String,
-    enum: [
-        "MEDICINE",
-        "EXERCISE",
-        "MEAL",
-        "WATER",
-        "APPOINTMENT",
-        "CUSTOM",
-    ],
-    required: [true, "Reminder category is required"],
-},
-medicine: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Medicine",
-    default: null,
-},
-user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-    required: [true, "User is required"],
-},
-reminderType: {
-    type: String,
-    enum: [
-        "ONE_TIME",
-        "DAILY",
-        "HOURLY",
-        "WEEKLY",
-        "CUSTOM",
-    ],
-    required: [true, "Reminder type is required"],
-},
-scheduledAt: {
-    type: Date,
-    default: null,
-},
-startDate: {
-    type: Date,
-    default: null,
-},
+            type: String,
+            required: [true, "Reminder title is required"],
+            trim: true,
+        },
 
-endDate: {
-    type: Date,
-    default: null,
-},
-time: {
-    type: String,
-    default: null,
-    trim: true,
-},
+        category: {
+            type: String,
+            enum: [
+                "MEDICINE",
+                "EXERCISE",
+                "MEAL",
+                "WATER",
+                "APPOINTMENT",
+                "CUSTOM",
+            ],
+            required: [true, "Reminder category is required"],
+        },
 
-daysOfWeek: {
-    type: [{
-        type: String,
-        enum: [
-            "SUNDAY",
-            "MONDAY",
-            "TUESDAY",
-            "WEDNESDAY",
-            "THURSDAY",
-            "FRIDAY",
-            "SATURDAY",
-        ],
-    }],
-    default: [],
-},
+        medicine: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Medicine",
+            default: null,
+        },
 
-customInterval: {
-    type: Number,
-        min: [1, "Custom interval must be at least 1"],
-    default: null
-},
+        user: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            required: [true, "User is required"],
+        },
 
-customIntervalUnit: {
-    type: String,
-    enum: ["MINUTES", "HOURS", "DAYS"],
-    default: null
-},
+        reminderType: {
+            type: String,
+            enum: [
+                "ONE_TIME",
+                "DAILY",
+                "HOURLY",
+                "WEEKLY",
+                "CUSTOM",
+            ],
+            required: [true, "Reminder type is required"],
+        },
 
-intervalMinutes: {
-    type: Number,
-    min: [1, "Interval must be at least 1 minute"],
-    default: null,
-},
-startTime: {
-    type: String,
-    default: null,
-    trim: true,
-},
-endTime: {
-    type: String,
-    default: null,
-    trim: true,
-},
+        scheduledAt: {
+            type: Date,
+            default: null,
+        },
 
-isActive: {
-    type: Boolean,
-    default: true,
-},
-lastTriggeredAt: {
-    type: Date,
-    default: null,
-},
+        startDate: {
+            type: Date,
+            default: null,
+        },
 
-notificationType: {
-    type: String,
-    enum: [
-        "BROWSER",
-        "EMAIL",
-        "BOTH",
-    ],
-    default: "BROWSER",
-},
+        endDate: {
+            type: Date,
+            default: null,
+        },
 
-timezone: {
-    type: String,
-    default: "Asia/Kolkata",
-    trim: true,
-},
+        time: {
+            type: String,
+            default: null,
+            trim: true,
+        },
 
-description: {
-    type: String,
-    default: "",
-    trim: true,
-},
+        daysOfWeek: {
+            type: [{
+                type: String,
+                enum: [
+                    "SUNDAY",
+                    "MONDAY",
+                    "TUESDAY",
+                    "WEDNESDAY",
+                    "THURSDAY",
+                    "FRIDAY",
+                    "SATURDAY",
+                ],
+            }],
+            default: [],
+        },
 
+        customInterval: {
+            type: Number,
+            min: [1, "Custom interval must be at least 1"],
+            default: null,
+        },
+
+        customIntervalUnit: {
+            type: String,
+            enum: ["MINUTES", "HOURS", "DAYS"],
+            default: null,
+        },
+
+        intervalMinutes: {
+            type: Number,
+            min: [1, "Interval must be at least 1 minute"],
+            default: null,
+        },
+
+        startTime: {
+            type: String,
+            default: null,
+            trim: true,
+        },
+
+        endTime: {
+            type: String,
+            default: null,
+            trim: true,
+        },
+
+        isActive: {
+            type: Boolean,
+            default: true,
+        },
+
+        lastTriggeredAt: {
+            type: Date,
+            default: null,
+        },
+
+        // Prevent duplicate scheduler execution
+        processingLockUntil: {
+            type: Date,
+            default: null,
+        },
+
+        processingLockToken: {
+            type: String,
+            default: null,
+        },
+
+        notificationType: {
+            type: String,
+            enum: [
+                "BROWSER",
+                "EMAIL",
+                "BOTH",
+            ],
+            default: "BROWSER",
+        },
+
+        timezone: {
+            type: String,
+            default: "Asia/Kolkata",
+            trim: true,
+        },
+
+        description: {
+            type: String,
+            default: "",
+            trim: true,
+        },
     },
     {
         timestamps: true,
