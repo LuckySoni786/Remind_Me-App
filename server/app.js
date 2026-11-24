@@ -33,7 +33,7 @@ app.use(morgan("dev"));
 app.use("/api/auth", authRoutes);
 app.use("/api/medicine", medicineRoutes);
 app.use("/api/reminder", reminderRoutes);
-app.use("/api/v1/reminder-history", reminderHistoryRouter);
+app.use("/api/reminder-history", reminderHistoryRouter);
 app.get("/", (req, res) => {
     res.status(200).json({
         success: true,
