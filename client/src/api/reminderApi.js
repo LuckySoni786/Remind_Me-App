@@ -35,3 +35,34 @@ export const resumeReminder = async (id) => {
   const response = await api.patch(`/reminder/${id}/resume`);
   return response.data;
 };
+
+export const getReminderHistory = async (params = {}) => {
+  const response = await api.get("/reminder-history", { params });
+  return response.data;
+};
+
+export const updateReminderHistoryStatus = async (id, status) => {
+  const response = await api.patch(`/reminder-history/${id}/status`, {
+    status,
+  });
+  return response.data;
+};
+
+export const snoozeReminderHistory = async (id, snoozeMinutes) => {
+  const response = await api.patch(`/reminder-history/${id}/snooze`, {
+    snoozeMinutes,
+  });
+  return response.data;
+};
+
+export const getTriggeredReminderHistory = async () => {
+  const response = await api.get("/reminder-history", {
+    params: {
+      status: "TRIGGERED",
+      limit: 100,
+      sort: "latest",
+    },
+  });
+
+  return response.data;
+};
